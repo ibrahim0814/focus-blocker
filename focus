@@ -495,10 +495,17 @@ restore_chrome_session() {
             else
                 echo -e "${YELLOW}  Chrome: $restored_count tabs restored${NC}"
             fi
+            
+            # Only return success if we actually restored tabs
+            if [ $restored_count -gt 0 ]; then
+                rm -f "$SESSION_DIR/chrome_urls.txt"
+                return 0
+            fi
         fi
         
         rm -f "$SESSION_DIR/chrome_urls.txt"
     fi
+    return 1
 }
 
 # Restore Safari session
@@ -534,10 +541,17 @@ restore_safari_session() {
             else
                 echo -e "${YELLOW}  Safari: $restored_count tabs restored${NC}"
             fi
+            
+            # Only return success if we actually restored tabs
+            if [ $restored_count -gt 0 ]; then
+                rm -f "$SESSION_DIR/safari_urls.txt"
+                return 0
+            fi
         fi
         
         rm -f "$SESSION_DIR/safari_urls.txt"
     fi
+    return 1
 }
 
 # Restore Brave session
@@ -573,10 +587,17 @@ restore_brave_session() {
             else
                 echo -e "${YELLOW}  Brave: $restored_count tabs restored${NC}"
             fi
+            
+            # Only return success if we actually restored tabs
+            if [ $restored_count -gt 0 ]; then
+                rm -f "$SESSION_DIR/brave_urls.txt"
+                return 0
+            fi
         fi
         
         rm -f "$SESSION_DIR/brave_urls.txt"
     fi
+    return 1
 }
 
 
@@ -597,39 +618,39 @@ force_close_browsers() {
     sleep 3  # Give browsers time to fully close
 }
 
-# Save all browser sessions and close browsers - concise output with summary counts
+# Save all browser tabs and close browsers - concise output with summary counts
 save_and_close_browsers() {
-    echo -e "${BLUE}Saving browser sessions...${NC}"
+    echo -e "${BLUE}Saving browser tabs...${NC}"
     init_session_dir
     
-    # Save sessions first - track if any sessions were saved
-    sessions_saved=0
-    save_chrome_session && sessions_saved=$((sessions_saved + 1))
-    save_safari_session && sessions_saved=$((sessions_saved + 1))
-    save_brave_session && sessions_saved=$((sessions_saved + 1))
+    # Save tabs first - track how many browsers had tabs saved
+    browsers_saved=0
+    save_chrome_session && browsers_saved=$((browsers_saved + 1))
+    save_safari_session && browsers_saved=$((browsers_saved + 1))
+    save_brave_session && browsers_saved=$((browsers_saved + 1))
     
-    if [ $sessions_saved -gt 0 ]; then
-        echo -e "${GREEN}✓ Saved $sessions_saved browser session(s)${NC}"
+    if [ $browsers_saved -gt 0 ]; then
+        echo -e "${GREEN}✓ Saved tabs from $browsers_saved browser(s)${NC}"
     fi
     
     # Force close browsers to prevent auto-restoration
     force_close_browsers
 }
 
-# Restore all browser sessions - shows per-browser tab counts with blocked sites filtered
+# Restore all browser tabs - shows per-browser tab counts with blocked sites filtered
 restore_browser_sessions() {
-    echo -e "${BLUE}Restoring browser sessions...${NC}"
+    echo -e "${BLUE}Restoring browser tabs...${NC}"
     # Wait a moment for hosts file changes to take effect
     sleep 1
     
-    # Restore sessions - track if any were restored
-    sessions_restored=0
-    restore_chrome_session && sessions_restored=$((sessions_restored + 1))
-    restore_safari_session && sessions_restored=$((sessions_restored + 1))
-    restore_brave_session && sessions_restored=$((sessions_restored + 1))
+    # Restore tabs - track how many browsers had tabs restored
+    browsers_restored=0
+    restore_chrome_session && browsers_restored=$((browsers_restored + 1))
+    restore_safari_session && browsers_restored=$((browsers_restored + 1))
+    restore_brave_session && browsers_restored=$((browsers_restored + 1))
     
-    if [ $sessions_restored -gt 0 ]; then
-        echo -e "${GREEN}✓ Restored $sessions_restored browser session(s)${NC}"
+    if [ $browsers_restored -gt 0 ]; then
+        echo -e "${GREEN}✓ Restored tabs in $browsers_restored browser(s)${NC}"
     fi
 }
 
@@ -642,7 +663,7 @@ focus_on() {
     
     echo -e "${BLUE}Activating focus mode...${NC}"
     
-    # Save browser sessions and close browsers to ensure they pick up the new hosts entries
+    # Save browser tabs and close browsers to ensure they pick up the new hosts entries
     save_and_close_browsers
     
     backup_hosts
@@ -675,7 +696,7 @@ focus_on() {
     blocked_count=$(get_blocked_sites | wc -l | tr -d ' ')
     echo -e "${GREEN}✓ Focus mode activated! Blocked $blocked_count websites.${NC}"
     
-    # Restore browser sessions
+    # Restore browser tabs
     restore_browser_sessions
 }
 

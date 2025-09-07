@@ -69,7 +69,7 @@ Focus Blocker is a terminal-based website blocker for macOS that helps users sta
 
 ## Terminal Output Design
 - **Concise messaging**: Terminal output is designed to be informative but not verbose
-- **Browser session feedback**: Shows session save/restore summaries without excessive detail
+- **Browser tab feedback**: Shows tab save/restore summaries without excessive detail
 - **Spotify integration**: Shows playlist name being played, not song names
 - **Progress indicators**: Uses checkmarks (✓) and warning symbols (⚠️) for clear status
 - **Color coding**: Green for success, Yellow for warnings, Blue for info, Red for errors

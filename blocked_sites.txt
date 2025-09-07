@@ -18,7 +18,6 @@ bbc.com
 news.ycombinator.com
 
 # Common Time Wasters
-9gag.com
 imgur.com
 pinterest.com
 
@@ -26,3 +25,5 @@ pinterest.com
 twitch.tv
 steam.com
 youtube.com
+gmail.com
+mail.google.com

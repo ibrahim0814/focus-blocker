@@ -23,10 +23,10 @@ Focus Blocker works by modifying your system's `/etc/hosts` file to redirect blo
 
 ### Browser Session Management
 
-When you activate focus mode, Focus Blocker intelligently manages your browser sessions:
+When you activate focus mode, Focus Blocker intelligently manages your browser tabs:
 
 1. **Saves all open tabs** from Chrome, Safari, and Brave using AppleScript
-2. **Force closes browsers** using SIGKILL to prevent session auto-restoration
+2. **Force closes browsers** using SIGKILL to prevent automatic tab restoration
 3. **Updates the hosts file** to block distracting websites
 4. **Restores only productive tabs** - automatically filters out and skips tabs from blocked sites
 5. **Provides clear feedback** about which blocked sites were skipped during restoration
@@ -34,7 +34,7 @@ When you activate focus mode, Focus Blocker intelligently manages your browser s
 **What happens to your browser windows:**
 - 🔄 **All browsers are completely closed** - Chrome, Safari, Brave, and Comet are force-quit
 - 📋 **Tab URLs are saved first** - using AppleScript to capture all meaningful tabs
-- ⚠️ **Browsers may show restore dialogs** - some browsers (like Brave) may still prompt to restore sessions
+- ⚠️ **Browsers may show restore dialogs** - some browsers (like Brave) may still prompt to restore tabs
 - ✨ **Only productive tabs return** - blocked site tabs are filtered out and not reopened
 - 🎯 **Fresh, focused browsing** - browsers open with only your work-related tabs
 
@@ -42,7 +42,7 @@ This ensures that:
 - 🔄 **No work is lost** - all your productive tabs are preserved and restored
 - ⚡ **Blocking is immediate** - browsers restart fresh and respect the hosts file
 - 🎯 **Clean focus** - blocked site tabs aren't restored, keeping your workspace distraction-free
-- 🚪 **No bypass routes** - browsers can't restore blocked tabs from their own session management
+- 🚪 **No bypass routes** - browsers can't restore blocked tabs from their own tab restoration
 
 ## Installation
 
@@ -171,24 +171,24 @@ The default configuration includes common distracting websites:
 # Start focusing (blocks all configured sites)
 $ focus
 Activating focus mode...
-Saving browser sessions...
-✓ Saved 2 browser session(s)
+Saving browser tabs...
+✓ Saved tabs from 2 browser(s)
 ✓ Focus mode activated! Blocked 17 websites.
-Restoring browser sessions...
+Restoring browser tabs...
   Safari: 1 tabs restored
   Brave: 2 tabs restored
-✓ Restored 3 browser session(s)
+✓ Restored tabs in 2 browser(s)
 
 # Start focusing with Spotify playlist
 $ focus -s coding
 Activating focus mode...
-Saving browser sessions...
-✓ Saved 2 browser session(s)
+Saving browser tabs...
+✓ Saved tabs from 2 browser(s)
 ✓ Focus mode activated! Blocked 17 websites.
-Restoring browser sessions...
+Restoring browser tabs...
   Safari: 1 tabs restored
   Brave: 2 tabs restored
-✓ Restored 3 browser session(s)
+✓ Restored tabs in 2 browser(s)
 Starting Spotify...
 ✓ Playing: coding
 
@@ -275,7 +275,7 @@ If blocked sites are still accessible:
 If browser tabs aren't being restored properly:
 1. **AppleScript permissions**: Ensure browsers have AppleScript access permissions in System Preferences > Security & Privacy > Privacy > Automation
 2. **Browser force-close**: The script force-quits browsers using SIGKILL to prevent auto-restoration - this is expected behavior
-3. **Session storage**: Session files are temporarily stored in `.browser_sessions/` directory and cleaned up automatically
+3. **Tab storage**: Tab URLs are temporarily stored in `.browser_sessions/` directory and cleaned up automatically
 4. **Tab order**: Tabs are restored in reverse order to maintain the original left-to-right arrangement
 
 ### Restoring Original Hosts File
@@ -320,14 +320,14 @@ This project is open source and available under the MIT License.
 
 Unlike browser extensions that can be easily disabled or bypassed:
 - ✅ Works across **all browsers** and applications
-- ✅ **Intelligent session management** - preserves your work while blocking distractions
+- ✅ **Intelligent tab management** - preserves your work while blocking distractions
 - ✅ **Spotify integration** - launch focus sessions with productivity playlists
 - ✅ **Clean terminal output** - informative without being overwhelming
 - ✅ **Harder to bypass** - requires conscious effort to disable
 - ✅ **No browser dependencies** - works even if you switch browsers
 - ✅ **Smart URL filtering** - doesn't waste time restoring tabs from blocked sites
 - ✅ **Lightweight** - no background processes or memory usage
-- ✅ **Privacy-focused** - all blocking and session management happens locally
+- ✅ **Privacy-focused** - all blocking and tab management happens locally
 
 ---
 
