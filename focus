@@ -90,22 +90,31 @@ is_url_blocked() {
 # Save Chrome tabs using AppleScript
 save_chrome_session() {
     if pgrep -f "Google Chrome" > /dev/null; then
-        echo -e "${BLUE}  Saving Chrome tabs...${NC}"
+        echo -e "${BLUE}  Checking Chrome tabs...${NC}"
         osascript << 'EOF' > "$SESSION_DIR/chrome_urls.txt" 2>/dev/null
 tell application "Google Chrome"
     set urlList to {}
     repeat with w in windows
         repeat with t in tabs of w
-            set end of urlList to URL of t
+            set tabURL to (URL of t as string)
+            -- Skip empty tabs, new tab pages, and chrome internal pages
+            if tabURL is not "" and tabURL does not start with "chrome://" and tabURL does not start with "chrome-extension://" and tabURL is not "about:blank" then
+                set end of urlList to tabURL
+            end if
         end repeat
     end repeat
-    return urlList as string
+    set AppleScript's text item delimiters to linefeed
+    set urlText to urlList as string
+    set AppleScript's text item delimiters to ""
+    return urlText
 end tell
 EOF
-        if [ -s "$SESSION_DIR/chrome_urls.txt" ]; then
-            echo -e "${YELLOW}    ✓ Saved Chrome session${NC}"
+        # Check if we have any meaningful tabs
+        if [ -s "$SESSION_DIR/chrome_urls.txt" ] && [ "$(wc -l < "$SESSION_DIR/chrome_urls.txt" | tr -d ' ')" -gt 0 ]; then
+            echo -e "${YELLOW}    ✓ Saved Chrome session ($(wc -l < "$SESSION_DIR/chrome_urls.txt" | tr -d ' ') tabs)${NC}"
             return 0
         else
+            echo -e "${YELLOW}    ⚠️  Chrome has no meaningful tabs to save${NC}"
             rm -f "$SESSION_DIR/chrome_urls.txt"
             return 1
         fi
@@ -116,22 +125,31 @@ EOF
 # Save Safari tabs using AppleScript  
 save_safari_session() {
     if pgrep -f "Safari" > /dev/null; then
-        echo -e "${BLUE}  Saving Safari tabs...${NC}"
+        echo -e "${BLUE}  Checking Safari tabs...${NC}"
         osascript << 'EOF' > "$SESSION_DIR/safari_urls.txt" 2>/dev/null
 tell application "Safari"
     set urlList to {}
     repeat with w in windows
         repeat with t in tabs of w
-            set end of urlList to URL of t
+            set tabURL to (URL of t as string)
+            -- Skip empty tabs, new tab pages, and blank pages
+            if tabURL is not "" and tabURL does not start with "safari-extension://" and tabURL is not "about:blank" and tabURL does not contain "favorites://" then
+                set end of urlList to tabURL
+            end if
         end repeat
     end repeat
-    return urlList as string
+    set AppleScript's text item delimiters to linefeed
+    set urlText to urlList as string
+    set AppleScript's text item delimiters to ""
+    return urlText
 end tell
 EOF
-        if [ -s "$SESSION_DIR/safari_urls.txt" ]; then
-            echo -e "${YELLOW}    ✓ Saved Safari session${NC}"
+        # Check if we have any meaningful tabs
+        if [ -s "$SESSION_DIR/safari_urls.txt" ] && [ "$(wc -l < "$SESSION_DIR/safari_urls.txt" | tr -d ' ')" -gt 0 ]; then
+            echo -e "${YELLOW}    ✓ Saved Safari session ($(wc -l < "$SESSION_DIR/safari_urls.txt" | tr -d ' ') tabs)${NC}"
             return 0
         else
+            echo -e "${YELLOW}    ⚠️  Safari has no meaningful tabs to save${NC}"
             rm -f "$SESSION_DIR/safari_urls.txt"
             return 1
         fi
@@ -142,22 +160,31 @@ EOF
 # Save Brave tabs using AppleScript (same as Chrome but for Brave)
 save_brave_session() {
     if pgrep -f "Brave Browser" > /dev/null; then
-        echo -e "${BLUE}  Saving Brave tabs...${NC}"
+        echo -e "${BLUE}  Checking Brave tabs...${NC}"
         osascript << 'EOF' > "$SESSION_DIR/brave_urls.txt" 2>/dev/null
 tell application "Brave Browser"
     set urlList to {}
     repeat with w in windows
         repeat with t in tabs of w
-            set end of urlList to URL of t
+            set tabURL to (URL of t as string)
+            -- Skip empty tabs, new tab pages, and brave internal pages
+            if tabURL is not "" and tabURL does not start with "brave://" and tabURL does not start with "chrome://" and tabURL does not start with "chrome-extension://" and tabURL is not "about:blank" then
+                set end of urlList to tabURL
+            end if
         end repeat
     end repeat
-    return urlList as string
+    set AppleScript's text item delimiters to linefeed
+    set urlText to urlList as string
+    set AppleScript's text item delimiters to ""
+    return urlText
 end tell
 EOF
-        if [ -s "$SESSION_DIR/brave_urls.txt" ]; then
-            echo -e "${YELLOW}    ✓ Saved Brave session${NC}"
+        # Check if we have any meaningful tabs
+        if [ -s "$SESSION_DIR/brave_urls.txt" ] && [ "$(wc -l < "$SESSION_DIR/brave_urls.txt" | tr -d ' ')" -gt 0 ]; then
+            echo -e "${YELLOW}    ✓ Saved Brave session ($(wc -l < "$SESSION_DIR/brave_urls.txt" | tr -d ' ') tabs)${NC}"
             return 0
         else
+            echo -e "${YELLOW}    ⚠️  Brave has no meaningful tabs to save${NC}"
             rm -f "$SESSION_DIR/brave_urls.txt"
             return 1
         fi
@@ -171,7 +198,9 @@ restore_chrome_session() {
         echo -e "${BLUE}  Restoring Chrome tabs...${NC}"
         
         # Parse URLs and filter out blocked sites
-        urls=$(cat "$SESSION_DIR/chrome_urls.txt" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+        # Reverse order because 'open' adds new tabs at the end, so we need to open them backwards
+        # to maintain the original left-to-right tab order
+        urls=$(cat "$SESSION_DIR/chrome_urls.txt" | tail -r)
         
         if [ -n "$urls" ]; then
             restored_count=0
@@ -181,10 +210,12 @@ restore_chrome_session() {
                 if [ -n "$url" ] && [ "$url" != "" ]; then
                     if is_url_blocked "$url"; then
                         blocked_count=$((blocked_count + 1))
-                        echo -e "${RED}    ⚠️  Skipped blocked site: $(echo "$url" | cut -d'/' -f3)${NC}"
+                        echo -e "${RED}    ⚠️  Skipped blocked site: $(echo "$url" | sed 's|https://||' | sed 's|http://||' | cut -d'/' -f1)${NC}"
                     else
+                        # Open URL in new tab, not new window
                         open -a "Google Chrome" "$url" 2>/dev/null
                         restored_count=$((restored_count + 1))
+                        sleep 0.1  # Small delay between tab opens
                     fi
                 fi
             done <<< "$urls"
@@ -202,7 +233,9 @@ restore_safari_session() {
         echo -e "${BLUE}  Restoring Safari tabs...${NC}"
         
         # Parse URLs and filter out blocked sites
-        urls=$(cat "$SESSION_DIR/safari_urls.txt" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+        # Reverse order because 'open' adds new tabs at the end, so we need to open them backwards
+        # to maintain the original left-to-right tab order
+        urls=$(cat "$SESSION_DIR/safari_urls.txt" | tail -r)
         
         if [ -n "$urls" ]; then
             restored_count=0
@@ -212,10 +245,12 @@ restore_safari_session() {
                 if [ -n "$url" ] && [ "$url" != "" ]; then
                     if is_url_blocked "$url"; then
                         blocked_count=$((blocked_count + 1))
-                        echo -e "${RED}    ⚠️  Skipped blocked site: $(echo "$url" | cut -d'/' -f3)${NC}"
+                        echo -e "${RED}    ⚠️  Skipped blocked site: $(echo "$url" | sed 's|https://||' | sed 's|http://||' | cut -d'/' -f1)${NC}"
                     else
+                        # Open URL in new tab, not new window
                         open -a "Safari" "$url" 2>/dev/null
                         restored_count=$((restored_count + 1))
+                        sleep 0.1  # Small delay between tab opens
                     fi
                 fi
             done <<< "$urls"
@@ -233,7 +268,9 @@ restore_brave_session() {
         echo -e "${BLUE}  Restoring Brave tabs...${NC}"
         
         # Parse URLs and filter out blocked sites
-        urls=$(cat "$SESSION_DIR/brave_urls.txt" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+        # Reverse order because 'open' adds new tabs at the end, so we need to open them backwards
+        # to maintain the original left-to-right tab order
+        urls=$(cat "$SESSION_DIR/brave_urls.txt" | tail -r)
         
         if [ -n "$urls" ]; then
             restored_count=0
@@ -243,10 +280,12 @@ restore_brave_session() {
                 if [ -n "$url" ] && [ "$url" != "" ]; then
                     if is_url_blocked "$url"; then
                         blocked_count=$((blocked_count + 1))
-                        echo -e "${RED}    ⚠️  Skipped blocked site: $(echo "$url" | cut -d'/' -f3)${NC}"
+                        echo -e "${RED}    ⚠️  Skipped blocked site: $(echo "$url" | sed 's|https://||' | sed 's|http://||' | cut -d'/' -f1)${NC}"
                     else
+                        # Open URL in new tab, not new window
                         open -a "Brave Browser" "$url" 2>/dev/null
                         restored_count=$((restored_count + 1))
+                        sleep 0.1  # Small delay between tab opens
                     fi
                 fi
             done <<< "$urls"
@@ -258,29 +297,43 @@ restore_brave_session() {
     fi
 }
 
+
+# Force close browsers without session restoration
+force_close_browsers() {
+    echo -e "${BLUE}Force closing browsers to prevent auto-restoration...${NC}"
+    
+    # Force quit browsers with SIGKILL to prevent session saving
+    pkill -9 -f "Google Chrome" 2>/dev/null && echo -e "${YELLOW}  ✓ Force closed Chrome${NC}"
+    pkill -9 -f "Brave Browser" 2>/dev/null && echo -e "${YELLOW}  ✓ Force closed Brave${NC}"
+    pkill -9 -f "Safari" 2>/dev/null && echo -e "${YELLOW}  ✓ Force closed Safari${NC}"
+    pkill -9 -f "Comet" 2>/dev/null && echo -e "${YELLOW}  ✓ Force closed Comet${NC}"
+    
+    # Also kill any remaining processes
+    pkill -9 chrome 2>/dev/null
+    pkill -9 brave 2>/dev/null  
+    pkill -9 safari 2>/dev/null
+    pkill -9 comet 2>/dev/null
+    
+    sleep 3  # Give browsers time to fully close
+}
+
 # Save all browser sessions and close browsers
 save_and_close_browsers() {
     echo -e "${BLUE}Saving browser sessions and closing browsers...${NC}"
     init_session_dir
     
-    # Save sessions
-    save_chrome_session
-    save_safari_session
-    save_brave_session
+    # Save sessions first - track if any sessions were saved
+    sessions_saved=0
+    save_chrome_session && sessions_saved=$((sessions_saved + 1))
+    save_safari_session && sessions_saved=$((sessions_saved + 1))
+    save_brave_session && sessions_saved=$((sessions_saved + 1))
     
-    # Close browsers
-    killall "Google Chrome" 2>/dev/null && echo -e "${YELLOW}  ✓ Closed Chrome${NC}"
-    killall "Brave Browser" 2>/dev/null && echo -e "${YELLOW}  ✓ Closed Brave${NC}"
-    killall "Safari" 2>/dev/null && echo -e "${YELLOW}  ✓ Closed Safari${NC}"
-    killall "Comet" 2>/dev/null && echo -e "${YELLOW}  ✓ Closed Comet${NC}"
+    if [ $sessions_saved -eq 0 ]; then
+        echo -e "${YELLOW}  No meaningful browser sessions to save${NC}"
+    fi
     
-    # Also kill common browser process names
-    killall "chrome" 2>/dev/null
-    killall "brave" 2>/dev/null
-    killall "safari" 2>/dev/null
-    killall "comet" 2>/dev/null
-    
-    sleep 2  # Give browsers time to fully close
+    # Force close browsers to prevent auto-restoration
+    force_close_browsers
 }
 
 # Restore all browser sessions
@@ -290,12 +343,17 @@ restore_browser_sessions() {
     # Wait a moment for hosts file changes to take effect
     sleep 1
     
-    # Restore sessions
-    restore_chrome_session
-    restore_safari_session  
-    restore_brave_session
+    # Restore sessions - track if any were restored
+    sessions_restored=0
+    restore_chrome_session && sessions_restored=$((sessions_restored + 1))
+    restore_safari_session && sessions_restored=$((sessions_restored + 1))
+    restore_brave_session && sessions_restored=$((sessions_restored + 1))
     
-    echo -e "${GREEN}✓ Browser sessions restored${NC}"
+    if [ $sessions_restored -eq 0 ]; then
+        echo -e "${YELLOW}  No browser sessions to restore${NC}"
+    else
+        echo -e "${GREEN}✓ Browser sessions restored${NC}"
+    fi
 }
 
 # Add focus block entries to hosts file
@@ -458,6 +516,7 @@ show_help() {
     echo "  focus list      - Show blocked sites and current status"
     echo "  focus add <site> - Add a site to block list"
     echo "  focus remove <site> - Remove a site from block list"
+    echo ""
     echo "  focus help      - Show this help"
     echo ""
     echo "Examples:"

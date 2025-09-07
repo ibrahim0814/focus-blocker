@@ -7,7 +7,7 @@ A simple terminal-based website blocker for macOS that helps you stay focused by
 - ✅ **Simple Commands**: Just run `focus` to block sites and `unfocus` to unblock them
 - ✅ **Smart Session Management**: Automatically saves and restores browser tabs when activating focus mode
 - ✅ **Intelligent URL Filtering**: Skips restoring tabs from blocked sites - no wasted effort
-- ✅ **Multi-Browser Support**: Works with Chrome, Safari, Brave, and Comet browsers
+- ✅ **Multi-Browser Support**: Works with Chrome, Safari, Brave, and Comet browsers (session management for Chrome, Safari, Brave)
 - ✅ **Customizable Block List**: Easily add/remove sites from your block list
 - ✅ **Works System-Wide**: Blocks websites in all browsers and applications
 - ✅ **No Background Processes**: Uses the system's hosts file, no daemon required
@@ -23,15 +23,23 @@ Focus Blocker works by modifying your system's `/etc/hosts` file to redirect blo
 When you activate focus mode, Focus Blocker intelligently manages your browser sessions:
 
 1. **Saves all open tabs** from Chrome, Safari, and Brave using AppleScript
-2. **Closes browsers** to ensure they pick up the new hosts file entries
+2. **Force closes browsers** using SIGKILL to prevent session auto-restoration
 3. **Updates the hosts file** to block distracting websites
 4. **Restores only productive tabs** - automatically filters out and skips tabs from blocked sites
 5. **Provides clear feedback** about which blocked sites were skipped during restoration
+
+**What happens to your browser windows:**
+- 🔄 **All browsers are completely closed** - Chrome, Safari, Brave, and Comet are force-quit
+- 📋 **Tab URLs are saved first** - using AppleScript to capture all meaningful tabs
+- 🚫 **Browsers restart clean** - no session restore dialogs or automatic tab restoration
+- ✨ **Only productive tabs return** - blocked site tabs are filtered out and not reopened
+- 🎯 **Fresh, focused browsing** - browsers open with only your work-related tabs
 
 This ensures that:
 - 🔄 **No work is lost** - all your productive tabs are preserved and restored
 - ⚡ **Blocking is immediate** - browsers restart fresh and respect the hosts file
 - 🎯 **Clean focus** - blocked site tabs aren't restored, keeping your workspace distraction-free
+- 🚪 **No bypass routes** - browsers can't restore blocked tabs from their own session management
 
 ## Installation
 
@@ -119,9 +127,14 @@ The default configuration includes common distracting websites:
 $ focus
 Activating focus mode...
 Saving browser sessions and closing browsers...
-  Saving Chrome tabs...
-    ✓ Saved Chrome session
-  ✓ Closed Chrome
+  Checking Chrome tabs...
+    ✓ Saved Chrome session (10 tabs)
+  Checking Safari tabs...
+    ⚠️  Safari has no meaningful tabs to save
+Force closing browsers to prevent auto-restoration...
+  ✓ Force closed Chrome
+  ✓ Force closed Safari
+  ✓ Force closed Brave
 ✓ Focus mode activated! Blocked 17 websites.
 Restoring browser sessions...
   Restoring Chrome tabs...
@@ -196,9 +209,10 @@ If blocked sites are still accessible:
 
 ### Browser Session Issues
 If browser tabs aren't being restored properly:
-1. Ensure browsers have AppleScript access permissions in System Preferences > Security & Privacy > Privacy > Automation
-2. Check that the browsers are properly closed before hosts file modification
-3. Session files are temporarily stored in `.browser_sessions/` directory - these are cleaned up automatically
+1. **AppleScript permissions**: Ensure browsers have AppleScript access permissions in System Preferences > Security & Privacy > Privacy > Automation
+2. **Browser force-close**: The script force-quits browsers using SIGKILL to prevent auto-restoration - this is expected behavior
+3. **Session storage**: Session files are temporarily stored in `.browser_sessions/` directory and cleaned up automatically
+4. **Tab order**: Tabs are restored in reverse order to maintain the original left-to-right arrangement
 
 ### Restoring Original Hosts File
 If something goes wrong, you can restore your original hosts file:
