@@ -31,7 +31,7 @@ When you activate focus mode, Focus Blocker intelligently manages your browser s
 **What happens to your browser windows:**
 - 🔄 **All browsers are completely closed** - Chrome, Safari, Brave, and Comet are force-quit
 - 📋 **Tab URLs are saved first** - using AppleScript to capture all meaningful tabs
-- 🚫 **Browsers restart clean** - no session restore dialogs or automatic tab restoration
+- ⚠️ **Browsers may show restore dialogs** - some browsers (like Brave) may still prompt to restore sessions
 - ✨ **Only productive tabs return** - blocked site tabs are filtered out and not reopened
 - 🎯 **Fresh, focused browsing** - browsers open with only your work-related tabs
 
