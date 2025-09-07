@@ -113,20 +113,37 @@ This ensures that:
 
 ### Managing Spotify Playlists
 
+Focus Blocker comes with several pre-configured productivity playlists:
+- **focus** - Deep focus music
+- **study** - Study-friendly tracks  
+- **coding** - Programming background music
+- **jazz** - Smooth jazz for concentration
+- **piano** - Peaceful piano melodies
+- **lofi** - Lo-fi hip hop beats
+- **nature** - Nature sounds and ambient
+- **noise** - White/brown noise for concentration
+
 - **List available playlists**:
   ```bash
   focus playlists
   ```
 
+- **Use a specific playlist**:
+  ```bash
+  focus -s coding        # Launch with coding playlist
+  focus -s jazz          # Launch with jazz playlist  
+  focus -s nature        # Launch with nature sounds
+  ```
+
 - **Add a new playlist**:
   ```bash
-  focus playlist add lofi https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn
-  focus playlist add jazz spotify:playlist:37i9dQZF1DX0XUsuxWHRQd
+  focus playlist add classical https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn
+  focus playlist add ambient spotify:playlist:37i9dQZF1DX0XUsuxWHRQd
   ```
 
 - **Remove a playlist**:
   ```bash
-  focus playlist remove lofi
+  focus playlist remove classical
   ```
 
 ### Manual Configuration
@@ -162,7 +179,7 @@ Restoring browser sessions...
 ✓ Restored 3 browser session(s)
 
 # Start focusing with Spotify playlist
-$ focus -s lofi
+$ focus -s coding
 Activating focus mode...
 Saving browser sessions...
 ✓ Saved 2 browser session(s)
@@ -172,7 +189,7 @@ Restoring browser sessions...
   Brave: 2 tabs restored
 ✓ Restored 3 browser session(s)
 Starting Spotify...
-✓ Playing: lofi
+✓ Playing: coding
 
 # Check what's being blocked
 $ focus list
@@ -187,11 +204,18 @@ Focus mode is currently: ACTIVE
 # Manage Spotify playlists
 $ focus playlists
 Available Spotify playlists:
-  default - spotify:playlist:37i9dQZF1DX0XUsuxWHRQd
+  default - spotify:playlist:37i9dQZF1DWWQRwui0ExPn
+  focus - spotify:playlist:37i9dQZF1DWZeKCadgRdKQ
+  study - spotify:playlist:6zCID88oNjNv9zx6puDHKj
+  coding - spotify:playlist:37i9dQZF1DX5trt9i14X7j
+  jazz - spotify:playlist:37i9dQZF1DWV7EzJMK2FUI
+  piano - spotify:playlist:37i9dQZF1DX4sWSpwq3LiO
   lofi - spotify:playlist:37i9dQZF1DWWQRwui0ExPn
+  nature - spotify:playlist:37i9dQZF1DX4PP3DA4J0N8
+  noise - spotify:playlist:37i9dQZF1DWUZ5bk6qqDSy
 
-$ focus playlist add jazz https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO
-✓ Added playlist 'jazz' (spotify:playlist:37i9dQZF1DX4sWSpwq3LiO)
+$ focus playlist add classical https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO
+✓ Added playlist 'classical' (spotify:playlist:37i9dQZF1DX4sWSpwq3LiO)
 
 # Add a new site to block
 $ focus add pinterest.com

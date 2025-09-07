@@ -6,4 +6,13 @@
 # Default playlist (used when no name specified with focus -s)
 default=spotify:playlist:37i9dQZF1DWWQRwui0ExPn
 
+focus=spotify:playlist:37i9dQZF1DWZeKCadgRdKQ
+study=spotify:playlist:6zCID88oNjNv9zx6puDHKj
+coding=spotify:playlist:37i9dQZF1DX5trt9i14X7j
+jazz=spotify:playlist:37i9dQZF1DWV7EzJMK2FUI
+piano=spotify:playlist:37i9dQZF1DX4sWSpwq3LiO
 lofi=spotify:playlist:37i9dQZF1DWWQRwui0ExPn
+nature=spotify:playlist:37i9dQZF1DX4PP3DA4J0N8
+noise=spotify:playlist:37i9dQZF1DWUZ5bk6qqDSy
+
+
