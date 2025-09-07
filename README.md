@@ -8,10 +8,13 @@ A simple terminal-based website blocker for macOS that helps you stay focused by
 - ✅ **Smart Session Management**: Automatically saves and restores browser tabs when activating focus mode
 - ✅ **Intelligent URL Filtering**: Skips restoring tabs from blocked sites - no wasted effort
 - ✅ **Multi-Browser Support**: Works with Chrome, Safari, Brave, and Comet browsers (session management for Chrome, Safari, Brave)
+- ✅ **Spotify Integration**: Launch focus mode with custom playlists for enhanced productivity
+- ✅ **Playlist Management**: Add, remove, and list custom Spotify playlists
 - ✅ **Customizable Block List**: Easily add/remove sites from your block list
 - ✅ **Works System-Wide**: Blocks websites in all browsers and applications
 - ✅ **No Background Processes**: Uses the system's hosts file, no daemon required
 - ✅ **Terminal Interface**: Perfect for developers who live in the terminal
+- ✅ **Clean Output**: Concise, informative messages without clutter
 - ✅ **Visual Status**: See which sites are blocked and your current focus status
 
 ## How It Works
@@ -73,6 +76,12 @@ This ensures that:
   focus
   ```
 
+- **Block websites + launch Spotify playlist**:
+  ```bash
+  focus -s                    # Launch with default playlist
+  focus -s lofi               # Launch with named playlist
+  ```
+
 - **Unblock websites (exit focus mode)**:
   ```bash
   unfocus
@@ -102,6 +111,24 @@ This ensures that:
   focus help
   ```
 
+### Managing Spotify Playlists
+
+- **List available playlists**:
+  ```bash
+  focus playlists
+  ```
+
+- **Add a new playlist**:
+  ```bash
+  focus playlist add lofi https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn
+  focus playlist add jazz spotify:playlist:37i9dQZF1DX0XUsuxWHRQd
+  ```
+
+- **Remove a playlist**:
+  ```bash
+  focus playlist remove lofi
+  ```
+
 ### Manual Configuration
 
 You can also manually edit the configuration file:
@@ -126,23 +153,26 @@ The default configuration includes common distracting websites:
 # Start focusing (blocks all configured sites)
 $ focus
 Activating focus mode...
-Saving browser sessions and closing browsers...
-  Checking Chrome tabs...
-    ✓ Saved Chrome session (10 tabs)
-  Checking Safari tabs...
-    ⚠️  Safari has no meaningful tabs to save
-Force closing browsers to prevent auto-restoration...
-  ✓ Force closed Chrome
-  ✓ Force closed Safari
-  ✓ Force closed Brave
+Saving browser sessions...
+✓ Saved 2 browser session(s)
 ✓ Focus mode activated! Blocked 17 websites.
 Restoring browser sessions...
-  Restoring Chrome tabs...
-    ⚠️  Skipped blocked site: youtube.com
-    ⚠️  Skipped blocked site: reddit.com
-    ✓ Restored Chrome session (8 tabs, 2 blocked tabs skipped)
-✓ Browser sessions restored
-Run 'unfocus' to disable.
+  Safari: 1 tabs restored
+  Brave: 2 tabs restored
+✓ Restored 3 browser session(s)
+
+# Start focusing with Spotify playlist
+$ focus -s lofi
+Activating focus mode...
+Saving browser sessions...
+✓ Saved 2 browser session(s)
+✓ Focus mode activated! Blocked 17 websites.
+Restoring browser sessions...
+  Safari: 1 tabs restored
+  Brave: 2 tabs restored
+✓ Restored 3 browser session(s)
+Starting Spotify...
+✓ Playing: lofi
 
 # Check what's being blocked
 $ focus list
@@ -154,14 +184,22 @@ Currently configured blocked sites:
 
 Focus mode is currently: ACTIVE
 
+# Manage Spotify playlists
+$ focus playlists
+Available Spotify playlists:
+  default - spotify:playlist:37i9dQZF1DX0XUsuxWHRQd
+  lofi - spotify:playlist:37i9dQZF1DWWQRwui0ExPn
+
+$ focus playlist add jazz https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO
+✓ Added playlist 'jazz' (spotify:playlist:37i9dQZF1DX4sWSpwq3LiO)
+
 # Add a new site to block
 $ focus add pinterest.com
 ✓ Added 'pinterest.com' to block list
-Reactivating focus mode with new site...
-✓ Focus mode activated! Blocked 18 websites.
 
 # Stop focusing (unblocks all sites)
 $ unfocus
+Deactivating focus mode...
 ✓ Focus mode deactivated! All sites unblocked.
 ```
 
@@ -183,7 +221,8 @@ You can add sites in several ways:
 
 ### Configuration File Location
 
-- Config file: `~/repos/focus-blocker/blocked_sites.txt`
+- Blocked sites config: `~/repos/focus-blocker/blocked_sites.txt`
+- Spotify playlists config: `~/repos/focus-blocker/spotify_config.txt`
 - Backup of original hosts: `~/repos/focus-blocker/hosts_backup`
 
 ## Troubleshooting
@@ -257,6 +296,8 @@ This project is open source and available under the MIT License.
 Unlike browser extensions that can be easily disabled or bypassed:
 - ✅ Works across **all browsers** and applications
 - ✅ **Intelligent session management** - preserves your work while blocking distractions
+- ✅ **Spotify integration** - launch focus sessions with productivity playlists
+- ✅ **Clean terminal output** - informative without being overwhelming
 - ✅ **Harder to bypass** - requires conscious effort to disable
 - ✅ **No browser dependencies** - works even if you switch browsers
 - ✅ **Smart URL filtering** - doesn't waste time restoring tabs from blocked sites

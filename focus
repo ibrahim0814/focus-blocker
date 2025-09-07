@@ -1,10 +1,20 @@
 #!/bin/bash
 
-# Focus Blocker - Block distracting websites
-# Usage: focus, unfocus, focus list, focus add <site>, focus remove <site>
+# Focus Blocker - Block distracting websites with intelligent session management and Spotify integration
+# Usage: 
+#   focus                              - Block websites and save/restore browser sessions
+#   focus -s [playlist]                - Block websites + launch Spotify playlist (shows playlist name when playing)
+#   focus list                         - Show blocked sites and current status  
+#   focus playlists                    - List available Spotify playlists
+#   focus playlist add <name> <url>    - Add new Spotify playlist
+#   focus playlist remove <name>       - Remove Spotify playlist
+#   focus add <site>                   - Add site to block list
+#   focus remove <site>                - Remove site from block list
+#   unfocus                           - Unblock all websites
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/blocked_sites.txt"
+SPOTIFY_CONFIG_FILE="$SCRIPT_DIR/spotify_config.txt"
 HOSTS_FILE="/etc/hosts"
 BACKUP_FILE="$SCRIPT_DIR/hosts_backup"
 FOCUS_MARKER="# FOCUS_BLOCKER_START"
@@ -33,6 +43,361 @@ youtube.com
 EOF
         echo -e "${GREEN}Created default config file: $CONFIG_FILE${NC}"
         echo -e "${BLUE}Edit this file to customize your blocked sites.${NC}"
+    fi
+}
+
+# Initialize Spotify config file if it doesn't exist
+init_spotify_config() {
+    if [ ! -f "$SPOTIFY_CONFIG_FILE" ]; then
+        cat > "$SPOTIFY_CONFIG_FILE" << EOF
+# Focus Blocker - Spotify Configuration
+# Format: PLAYLIST_NAME=spotify:playlist:PLAYLIST_ID
+# Add playlists using: focus playlist add <name> <url>
+# Just copy the playlist URL from Spotify - no need to convert to URI!
+
+# Default playlist (used when no name specified with focus -s)
+default=spotify:playlist:37i9dQZF1DX0XUsuxWHRQd
+EOF
+        echo -e "${GREEN}Created Spotify config file: $SPOTIFY_CONFIG_FILE${NC}"
+        echo -e "${BLUE}Add playlists using: ${YELLOW}focus playlist add <name> <url>${NC}"
+        echo -e "${BLUE}Example: ${YELLOW}focus playlist add lofi https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn${NC}"
+    fi
+}
+
+# Get Spotify playlist URI from config by name
+get_spotify_playlist() {
+    local playlist_name="$1"
+    
+    # Default to "default" if no name specified
+    if [ -z "$playlist_name" ]; then
+        playlist_name="default"
+    fi
+    
+    if [ -f "$SPOTIFY_CONFIG_FILE" ]; then
+        # Look for the named playlist
+        local playlist_uri=$(grep "^$playlist_name=" "$SPOTIFY_CONFIG_FILE" | cut -d'=' -f2)
+        
+        if [ -n "$playlist_uri" ]; then
+            echo "$playlist_uri"
+        else
+            echo "spotify:playlist:37i9dQZF1DX0XUsuxWHRQd"  # Fallback default
+        fi
+    else
+        echo "spotify:playlist:37i9dQZF1DX0XUsuxWHRQd"  # Default focus playlist
+    fi
+}
+
+# Convert Spotify URL to URI
+convert_spotify_url_to_uri() {
+    local input="$1"
+    
+    # If it's already a URI, return as-is
+    if echo "$input" | grep -q "^spotify:playlist:"; then
+        echo "$input"
+        return 0
+    fi
+    
+    # If it's a URL, extract the playlist ID
+    if echo "$input" | grep -q "open.spotify.com/playlist/"; then
+        local playlist_id=$(echo "$input" | sed 's/.*\/playlist\///' | sed 's/\?.*//')
+        echo "spotify:playlist:$playlist_id"
+        return 0
+    fi
+    
+    # If it doesn't match either format, return empty
+    echo ""
+    return 1
+}
+
+# List available playlists
+list_playlists() {
+    echo -e "${BLUE}Available Spotify playlists:${NC}"
+    if [ -f "$SPOTIFY_CONFIG_FILE" ]; then
+        local count=0
+        grep "^[a-zA-Z].*=" "$SPOTIFY_CONFIG_FILE" | while IFS='=' read -r name uri; do
+            echo -e "  ${YELLOW}$name${NC} - $uri"
+            count=$((count + 1))
+        done
+        
+        # Count playlists
+        local playlist_count=$(grep "^[a-zA-Z].*=" "$SPOTIFY_CONFIG_FILE" | wc -l | tr -d ' ')
+        if [ "$playlist_count" -eq 0 ]; then
+            echo -e "${YELLOW}  No playlists configured yet${NC}"
+            echo -e "${BLUE}  Add one with: ${YELLOW}focus playlist add <name> <uri>${NC}"
+        fi
+    else
+        echo -e "${RED}No Spotify config found. Run 'focus -s' to create one.${NC}"
+    fi
+}
+
+# Add a playlist
+add_playlist() {
+    local name="$1"
+    local input_url="$2"
+    
+    if [ -z "$name" ] || [ -z "$input_url" ]; then
+        echo -e "${RED}Please specify both name and URL/URI${NC}"
+        echo "Usage: focus playlist add <name> <url>"
+        echo "Examples:"
+        echo "  focus playlist add lofi https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn"
+        echo "  focus playlist add chill spotify:playlist:37i9dQZF1DX0XUsuxWHRQd"
+        return 1
+    fi
+    
+    # Convert URL to URI
+    local uri=$(convert_spotify_url_to_uri "$input_url")
+    
+    if [ -z "$uri" ]; then
+        echo -e "${RED}Invalid Spotify URL/URI format${NC}"
+        echo "Supported formats:"
+        echo "  • Spotify URL: https://open.spotify.com/playlist/PLAYLIST_ID"
+        echo "  • Spotify URI: spotify:playlist:PLAYLIST_ID"
+        echo ""
+        echo "To get a playlist URL: Share playlist in Spotify > Copy link to playlist"
+        return 1
+    fi
+    
+    init_spotify_config
+    
+    # Check if playlist name already exists
+    if grep -q "^$name=" "$SPOTIFY_CONFIG_FILE" 2>/dev/null; then
+        echo -e "${YELLOW}Playlist '$name' already exists. Updating...${NC}"
+        # Remove existing entry
+        grep -v "^$name=" "$SPOTIFY_CONFIG_FILE" > "$SPOTIFY_CONFIG_FILE.tmp" && mv "$SPOTIFY_CONFIG_FILE.tmp" "$SPOTIFY_CONFIG_FILE"
+    fi
+    
+    # Add new playlist
+    echo "$name=$uri" >> "$SPOTIFY_CONFIG_FILE"
+    echo -e "${GREEN}✓ Added playlist '$name' ($uri)${NC}"
+}
+
+# Remove a playlist
+remove_playlist() {
+    local name="$1"
+    
+    if [ -z "$name" ]; then
+        echo -e "${RED}Please specify playlist name to remove${NC}"
+        echo "Usage: focus playlist remove <name>"
+        return 1
+    fi
+    
+    if [ ! -f "$SPOTIFY_CONFIG_FILE" ]; then
+        echo -e "${RED}No Spotify config found${NC}"
+        return 1
+    fi
+    
+    if [ "$name" = "default" ]; then
+        echo -e "${RED}Cannot remove the default playlist${NC}"
+        return 1
+    fi
+    
+    if grep -q "^$name=" "$SPOTIFY_CONFIG_FILE"; then
+        grep -v "^$name=" "$SPOTIFY_CONFIG_FILE" > "$SPOTIFY_CONFIG_FILE.tmp" && mv "$SPOTIFY_CONFIG_FILE.tmp" "$SPOTIFY_CONFIG_FILE"
+        echo -e "${GREEN}✓ Removed playlist '$name'${NC}"
+    else
+        echo -e "${YELLOW}Playlist '$name' was not found${NC}"
+        echo -e "${BLUE}Available playlists:${NC}"
+        list_playlists
+    fi
+}
+
+# Launch Spotify with focus playlist - simplified output, shows playlist name instead of song
+launch_spotify_focus() {
+    local playlist_name="$1"
+
+    echo -e "${BLUE}Starting Spotify...${NC}"
+
+    init_spotify_config
+    local playlist_uri=$(get_spotify_playlist "$playlist_name")
+
+    if [ -z "$playlist_uri" ]; then
+        playlist_uri="spotify:playlist:37i9dQZF1DX0XUsuxWHRQd"  # Fallback default
+        echo -e "${YELLOW}Using default playlist${NC}"
+    fi
+
+    # Open Spotify with the playlist
+    open "$playlist_uri" 2>/dev/null
+
+    # Wait for Spotify to load the playlist
+    sleep 4
+
+    # Try to automatically start playback
+    local playback_started=false
+
+    # Method 1: Try to play the playlist directly via AppleScript
+    if osascript << EOF >/dev/null 2>&1
+tell application "Spotify"
+    -- First ensure Spotify is active
+    activate
+    delay 2
+
+    -- Try to play the playlist directly
+    try
+        play track "$playlist_uri"
+        delay 1
+    on error errMsg
+        -- If direct play fails, try alternative method
+        try
+            -- Set the playlist as current and play
+            set current track to "$playlist_uri"
+            delay 1
+            play
+        on error errMsg2
+            error "Failed to start playback"
+        end try
+    end try
+end tell
+EOF
+    then
+        playback_started=true
+    else
+        # Method 2: If AppleScript fails, try a different approach
+
+        if osascript << EOF >/dev/null 2>&1
+tell application "Spotify"
+    activate
+    delay 2
+
+    -- Alternative: Try to simulate clicking play button
+    try
+        -- Get the current view (should be the playlist)
+        tell application "System Events"
+            tell process "Spotify"
+                delay 1
+                -- Try to find and click the play button
+                try
+                    -- Look for play button in the main window
+                    click button 1 of window 1
+                on error
+                    -- Fallback: just ensure Spotify is playing something
+                    tell application "Spotify" to play
+                end try
+            end tell
+        end tell
+    on error errMsg
+        error "Failed alternative method"
+    end try
+end tell
+EOF
+        then
+            playback_started=true
+        fi
+    fi
+
+    # Wait for playback to actually start before minimizing
+    local playback_confirmed=false
+    local attempts=0
+    local max_attempts=10
+    
+    # Check if playback actually started (wait up to 10 seconds)
+    while [ $attempts -lt $max_attempts ] && [ "$playback_confirmed" = "false" ]; do
+        sleep 1
+        attempts=$((attempts + 1))
+        
+        # Check if Spotify is actually playing
+        local player_state=$(osascript -e 'tell application "Spotify" to get player state' 2>/dev/null)
+        local current_track=$(osascript -e 'tell application "Spotify" to get name of current track' 2>/dev/null)
+        
+        if [ "$player_state" = "playing" ] && [ -n "$current_track" ] && [ "$current_track" != "" ]; then
+            playback_confirmed=true
+            break
+        fi
+    done
+    
+    # Close Spotify window after confirming playback (music continues in background)
+    sleep 1  # Brief pause before closing
+    
+    # Close the Spotify window - much simpler and more reliable than minimizing
+    local window_closed=false
+
+    # Method 1: Close window using AppleScript
+    local close_result=$(osascript << EOF 2>/dev/null
+tell application "Spotify"
+    try
+        -- First check if Spotify is running
+        if it is running then
+            -- Check if there are any windows before trying to close
+            if (count windows) > 0 then
+                close window 1
+                return "success"
+            else
+                return "no_windows"
+            end if
+        else
+            return "not_running"
+        end if
+    on error errMsg
+        return "failed: " & errMsg
+    end try
+end tell
+EOF
+)
+
+    if [ "$close_result" = "success" ]; then
+        window_closed=true
+    elif [ "$close_result" = "no_windows" ]; then
+        window_closed=true
+    elif [ "$close_result" = "not_running" ]; then
+        # Spotify not running - do nothing
+        true
+    else
+        # Method 2: Use System Events to close window (Cmd+W)
+        local keyboard_result=$(osascript << EOF 2>/dev/null
+tell application "System Events"
+    tell process "Spotify"
+        try
+            -- Make sure Spotify window is active first
+            set frontmost to true
+            delay 0.5
+
+            -- Use keyboard shortcut to close window (Cmd+W)
+            keystroke "w" using command down
+            return "keyboard_close"
+        on error errMsg
+            return "system_events_failed: " & errMsg
+        end try
+    end tell
+end tell
+EOF
+)
+
+        if [ "$keyboard_result" = "keyboard_close" ]; then
+            window_closed=true
+        fi
+    fi
+
+    # Simple verification - just check if we attempted to close
+    if [ "$window_closed" != "true" ]; then
+        echo -e "${YELLOW}  ⚠️  Could not close Spotify window automatically${NC}"
+        echo -e "${BLUE}    You can close it manually with Cmd+W or click the red close button${NC}"
+        echo -e "${BLUE}    Music will continue playing in the background${NC}"
+    fi
+
+    # Final status report
+    local player_state=$(osascript -e 'tell application "Spotify" to get player state' 2>/dev/null)
+
+    if [ "$player_state" = "playing" ]; then
+        # Show playlist name - determine what was actually used
+        local display_name="$playlist_name"
+        local actual_playlist_uri=$(get_spotify_playlist "$playlist_name")
+        local default_uri="spotify:playlist:37i9dQZF1DX0XUsuxWHRQd"
+        
+        # If the requested playlist doesn't exist or falls back to default
+        if [ "$actual_playlist_uri" = "$default_uri" ]; then
+            if [ -z "$playlist_name" ] || [ "$playlist_name" = "default" ]; then
+                display_name="default focus playlist"
+            else
+                display_name="default focus playlist"  # Non-existent playlist falls back to default
+            fi
+        elif [ -z "$display_name" ] || [ "$display_name" = "default" ]; then
+            display_name="default focus playlist"
+        fi
+        
+        echo -e "${GREEN}✓ Playing: $display_name${NC}"
+    else
+        # Fallback: Provide user instructions
+        echo -e "${YELLOW}⚠️  Automatic playback didn't work${NC}"
+        echo -e "${BLUE}  Please manually click the green ▶️ play button in the Spotify playlist${NC}"
     fi
 }
 
@@ -90,7 +455,6 @@ is_url_blocked() {
 # Save Chrome tabs using AppleScript
 save_chrome_session() {
     if pgrep -f "Google Chrome" > /dev/null; then
-        echo -e "${BLUE}  Checking Chrome tabs...${NC}"
         osascript << 'EOF' > "$SESSION_DIR/chrome_urls.txt" 2>/dev/null
 tell application "Google Chrome"
     set urlList to {}
@@ -111,10 +475,8 @@ end tell
 EOF
         # Check if we have any meaningful tabs
         if [ -s "$SESSION_DIR/chrome_urls.txt" ] && [ "$(wc -l < "$SESSION_DIR/chrome_urls.txt" | tr -d ' ')" -gt 0 ]; then
-            echo -e "${YELLOW}    ✓ Saved Chrome session ($(wc -l < "$SESSION_DIR/chrome_urls.txt" | tr -d ' ') tabs)${NC}"
             return 0
         else
-            echo -e "${YELLOW}    ⚠️  Chrome has no meaningful tabs to save${NC}"
             rm -f "$SESSION_DIR/chrome_urls.txt"
             return 1
         fi
@@ -125,7 +487,6 @@ EOF
 # Save Safari tabs using AppleScript  
 save_safari_session() {
     if pgrep -f "Safari" > /dev/null; then
-        echo -e "${BLUE}  Checking Safari tabs...${NC}"
         osascript << 'EOF' > "$SESSION_DIR/safari_urls.txt" 2>/dev/null
 tell application "Safari"
     set urlList to {}
@@ -146,10 +507,8 @@ end tell
 EOF
         # Check if we have any meaningful tabs
         if [ -s "$SESSION_DIR/safari_urls.txt" ] && [ "$(wc -l < "$SESSION_DIR/safari_urls.txt" | tr -d ' ')" -gt 0 ]; then
-            echo -e "${YELLOW}    ✓ Saved Safari session ($(wc -l < "$SESSION_DIR/safari_urls.txt" | tr -d ' ') tabs)${NC}"
             return 0
         else
-            echo -e "${YELLOW}    ⚠️  Safari has no meaningful tabs to save${NC}"
             rm -f "$SESSION_DIR/safari_urls.txt"
             return 1
         fi
@@ -160,7 +519,6 @@ EOF
 # Save Brave tabs using AppleScript (same as Chrome but for Brave)
 save_brave_session() {
     if pgrep -f "Brave Browser" > /dev/null; then
-        echo -e "${BLUE}  Checking Brave tabs...${NC}"
         osascript << 'EOF' > "$SESSION_DIR/brave_urls.txt" 2>/dev/null
 tell application "Brave Browser"
     set urlList to {}
@@ -181,10 +539,8 @@ end tell
 EOF
         # Check if we have any meaningful tabs
         if [ -s "$SESSION_DIR/brave_urls.txt" ] && [ "$(wc -l < "$SESSION_DIR/brave_urls.txt" | tr -d ' ')" -gt 0 ]; then
-            echo -e "${YELLOW}    ✓ Saved Brave session ($(wc -l < "$SESSION_DIR/brave_urls.txt" | tr -d ' ') tabs)${NC}"
             return 0
         else
-            echo -e "${YELLOW}    ⚠️  Brave has no meaningful tabs to save${NC}"
             rm -f "$SESSION_DIR/brave_urls.txt"
             return 1
         fi
@@ -195,7 +551,6 @@ EOF
 # Restore Chrome session
 restore_chrome_session() {
     if [ -f "$SESSION_DIR/chrome_urls.txt" ] && [ -s "$SESSION_DIR/chrome_urls.txt" ]; then
-        echo -e "${BLUE}  Restoring Chrome tabs...${NC}"
         
         # Parse URLs and filter out blocked sites
         # Reverse order because 'open' adds new tabs at the end, so we need to open them backwards
@@ -220,7 +575,12 @@ restore_chrome_session() {
                 fi
             done <<< "$urls"
             
-            echo -e "${YELLOW}    ✓ Restored Chrome session ($restored_count tabs, $blocked_count blocked tabs skipped)${NC}"
+            # Show concise summary
+            if [ $blocked_count -gt 0 ]; then
+                echo -e "${YELLOW}  Chrome: $restored_count tabs restored, $blocked_count blocked${NC}"
+            else
+                echo -e "${YELLOW}  Chrome: $restored_count tabs restored${NC}"
+            fi
         fi
         
         rm -f "$SESSION_DIR/chrome_urls.txt"
@@ -230,7 +590,6 @@ restore_chrome_session() {
 # Restore Safari session
 restore_safari_session() {
     if [ -f "$SESSION_DIR/safari_urls.txt" ] && [ -s "$SESSION_DIR/safari_urls.txt" ]; then
-        echo -e "${BLUE}  Restoring Safari tabs...${NC}"
         
         # Parse URLs and filter out blocked sites
         # Reverse order because 'open' adds new tabs at the end, so we need to open them backwards
@@ -255,7 +614,12 @@ restore_safari_session() {
                 fi
             done <<< "$urls"
             
-            echo -e "${YELLOW}    ✓ Restored Safari session ($restored_count tabs, $blocked_count blocked tabs skipped)${NC}"
+            # Show concise summary
+            if [ $blocked_count -gt 0 ]; then
+                echo -e "${YELLOW}  Safari: $restored_count tabs restored, $blocked_count blocked${NC}"
+            else
+                echo -e "${YELLOW}  Safari: $restored_count tabs restored${NC}"
+            fi
         fi
         
         rm -f "$SESSION_DIR/safari_urls.txt"
@@ -265,7 +629,6 @@ restore_safari_session() {
 # Restore Brave session
 restore_brave_session() {
     if [ -f "$SESSION_DIR/brave_urls.txt" ] && [ -s "$SESSION_DIR/brave_urls.txt" ]; then
-        echo -e "${BLUE}  Restoring Brave tabs...${NC}"
         
         # Parse URLs and filter out blocked sites
         # Reverse order because 'open' adds new tabs at the end, so we need to open them backwards
@@ -290,7 +653,12 @@ restore_brave_session() {
                 fi
             done <<< "$urls"
             
-            echo -e "${YELLOW}    ✓ Restored Brave session ($restored_count tabs, $blocked_count blocked tabs skipped)${NC}"
+            # Show concise summary
+            if [ $blocked_count -gt 0 ]; then
+                echo -e "${YELLOW}  Brave: $restored_count tabs restored, $blocked_count blocked${NC}"
+            else
+                echo -e "${YELLOW}  Brave: $restored_count tabs restored${NC}"
+            fi
         fi
         
         rm -f "$SESSION_DIR/brave_urls.txt"
@@ -300,13 +668,11 @@ restore_brave_session() {
 
 # Force close browsers without session restoration
 force_close_browsers() {
-    echo -e "${BLUE}Force closing browsers to prevent auto-restoration...${NC}"
-    
     # Force quit browsers with SIGKILL to prevent session saving
-    pkill -9 -f "Google Chrome" 2>/dev/null && echo -e "${YELLOW}  ✓ Force closed Chrome${NC}"
-    pkill -9 -f "Brave Browser" 2>/dev/null && echo -e "${YELLOW}  ✓ Force closed Brave${NC}"
-    pkill -9 -f "Safari" 2>/dev/null && echo -e "${YELLOW}  ✓ Force closed Safari${NC}"
-    pkill -9 -f "Comet" 2>/dev/null && echo -e "${YELLOW}  ✓ Force closed Comet${NC}"
+    pkill -9 -f "Google Chrome" 2>/dev/null
+    pkill -9 -f "Brave Browser" 2>/dev/null
+    pkill -9 -f "Safari" 2>/dev/null
+    pkill -9 -f "Comet" 2>/dev/null
     
     # Also kill any remaining processes
     pkill -9 chrome 2>/dev/null
@@ -317,9 +683,9 @@ force_close_browsers() {
     sleep 3  # Give browsers time to fully close
 }
 
-# Save all browser sessions and close browsers
+# Save all browser sessions and close browsers - concise output with summary counts
 save_and_close_browsers() {
-    echo -e "${BLUE}Saving browser sessions and closing browsers...${NC}"
+    echo -e "${BLUE}Saving browser sessions...${NC}"
     init_session_dir
     
     # Save sessions first - track if any sessions were saved
@@ -328,18 +694,17 @@ save_and_close_browsers() {
     save_safari_session && sessions_saved=$((sessions_saved + 1))
     save_brave_session && sessions_saved=$((sessions_saved + 1))
     
-    if [ $sessions_saved -eq 0 ]; then
-        echo -e "${YELLOW}  No meaningful browser sessions to save${NC}"
+    if [ $sessions_saved -gt 0 ]; then
+        echo -e "${GREEN}✓ Saved $sessions_saved browser session(s)${NC}"
     fi
     
     # Force close browsers to prevent auto-restoration
     force_close_browsers
 }
 
-# Restore all browser sessions
+# Restore all browser sessions - shows per-browser tab counts with blocked sites filtered
 restore_browser_sessions() {
     echo -e "${BLUE}Restoring browser sessions...${NC}"
-    
     # Wait a moment for hosts file changes to take effect
     sleep 1
     
@@ -349,10 +714,8 @@ restore_browser_sessions() {
     restore_safari_session && sessions_restored=$((sessions_restored + 1))
     restore_brave_session && sessions_restored=$((sessions_restored + 1))
     
-    if [ $sessions_restored -eq 0 ]; then
-        echo -e "${YELLOW}  No browser sessions to restore${NC}"
-    else
-        echo -e "${GREEN}✓ Browser sessions restored${NC}"
+    if [ $sessions_restored -gt 0 ]; then
+        echo -e "${GREEN}✓ Restored $sessions_restored browser session(s)${NC}"
     fi
 }
 
@@ -400,8 +763,6 @@ focus_on() {
     
     # Restore browser sessions
     restore_browser_sessions
-    
-    echo -e "${BLUE}Run 'unfocus' to disable.${NC}"
 }
 
 # Remove focus block entries from hosts file
@@ -511,20 +872,31 @@ show_help() {
     echo -e "${BLUE}Focus Blocker - Website blocking utility${NC}"
     echo ""
     echo "Commands:"
-    echo "  focus           - Activate focus mode (block sites)"
-    echo "  unfocus         - Deactivate focus mode (unblock sites)"
-    echo "  focus list      - Show blocked sites and current status"
-    echo "  focus add <site> - Add a site to block list"
-    echo "  focus remove <site> - Remove a site from block list"
+    echo "  focus                    - Activate focus mode (block sites)"
+    echo "  focus -s                 - Activate focus mode + launch default Spotify playlist (auto-plays)"
+    echo "  focus -s <name>          - Activate focus mode + launch named Spotify playlist (auto-plays)"
+    echo "  unfocus                  - Deactivate focus mode (unblock sites)"
+    echo "  focus list               - Show blocked sites and current status"
+    echo "  focus playlists          - Show available Spotify playlists"
+    echo "  focus playlist add <name> <url> - Add a Spotify playlist"
+    echo "  focus playlist remove <name>    - Remove a Spotify playlist"
+    echo "  focus add <site>         - Add a site to block list"
+    echo "  focus remove <site>      - Remove a site from block list"
     echo ""
-    echo "  focus help      - Show this help"
+    echo "  focus help               - Show this help"
     echo ""
     echo "Examples:"
     echo "  focus add x.com"
     echo "  focus add reddit.com"
     echo "  focus remove youtube.com"
+    echo "  focus -s                 # Block sites and start default playlist"
+    echo "  focus -s lofi            # Block sites and start 'lofi' playlist"
+    echo "  focus playlist add lofi https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn"
+    echo "  focus playlist remove lofi"
     echo ""
-    echo -e "${YELLOW}Config file: $CONFIG_FILE${NC}"
+    echo -e "${YELLOW}Config files:${NC}"
+    echo -e "  Blocked sites: $CONFIG_FILE"
+    echo -e "  Spotify config: $SPOTIFY_CONFIG_FILE"
 }
 
 # Main logic
@@ -533,9 +905,35 @@ case "$1" in
         init_config
         focus_on
         ;;
+    "-s")
+        init_config
+        focus_on
+        launch_spotify_focus "$2"
+        ;;
     "list")
         init_config
         list_sites
+        ;;
+    "playlists")
+        init_spotify_config
+        list_playlists
+        ;;
+    "playlist")
+        case "$2" in
+            "add")
+                add_playlist "$3" "$4"
+                ;;
+            "remove")
+                remove_playlist "$3"
+                ;;
+            *)
+                echo -e "${RED}Unknown playlist command: $2${NC}"
+                echo "Usage: focus playlist [add|remove] ..."
+                echo "  focus playlist add <name> <url>"
+                echo "  focus playlist remove <name>"
+                exit 1
+                ;;
+        esac
         ;;
     "add")
         add_site "$2"

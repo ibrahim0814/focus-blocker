@@ -1,0 +1,9 @@
+# Focus Blocker - Spotify Configuration
+# Format: PLAYLIST_NAME=spotify:playlist:PLAYLIST_ID
+# Add playlists using: focus playlist add <name> <uri>
+# To get a playlist URI: Right-click playlist in Spotify > Share > Copy Spotify URI
+
+# Default playlist (used when no name specified with focus -s)
+default=spotify:playlist:37i9dQZF1DWWQRwui0ExPn
+
+lofi=spotify:playlist:37i9dQZF1DWWQRwui0ExPn

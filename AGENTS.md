@@ -10,10 +10,14 @@ Focus Blocker is a terminal-based website blocker for macOS that helps users sta
 
 ## Usage Commands
 - Block websites: `focus`
+- Block websites + launch Spotify playlist: `focus -s` or `focus -s <playlist_name>`
 - Unblock websites: `unfocus`  
 - Show status: `focus list`
 - Add site to blocklist: `focus add <domain>`
 - Remove site from blocklist: `focus remove <domain>`
+- List Spotify playlists: `focus playlists`
+- Add Spotify playlist: `focus playlist add <name> <url>`
+- Remove Spotify playlist: `focus playlist remove <name>`
 - Show help: `focus help`
 
 ## Code Style & Architecture
@@ -57,8 +61,18 @@ Focus Blocker is a terminal-based website blocker for macOS that helps users sta
 
 ## Configuration Files
 - **blocked_sites.txt**: One domain per line, no http/https prefixes
+- **spotify_config.txt**: Contains Spotify playlist URI for focus mode
 - **Format**: Plain text, comments start with #
 - **Default sites**: Includes x.com, twitter.com, reddit.com, youtube.com, facebook.com, instagram.com, tiktok.com, etc.
+- **Spotify Integration**: Uses AppleScript to control Spotify playback and URI scheme to open playlists. Automatically starts playback and shows playlist name instead of song name. Supports custom playlists via `focus playlist add` command.
+
+## Terminal Output Design
+- **Concise messaging**: Terminal output is designed to be informative but not verbose
+- **Browser session feedback**: Shows session save/restore summaries without excessive detail
+- **Spotify integration**: Shows playlist name being played, not song names
+- **Progress indicators**: Uses checkmarks (✓) and warning symbols (⚠️) for clear status
+- **Color coding**: Green for success, Yellow for warnings, Blue for info, Red for errors
+- **Clean output**: Avoids unnecessary intermediate status messages
 
 ## Development Tips
 - Always test with `focus list` before and after changes
@@ -67,6 +81,7 @@ Focus Blocker is a terminal-based website blocker for macOS that helps users sta
 - Test both active and inactive states for all commands
 - Ensure proper cleanup of temporary files
 - Keep the config file format simple and readable
+- Maintain concise terminal output - users should see what's important without clutter
 
 ## Deployment
 - No build process required (pure shell scripts)
