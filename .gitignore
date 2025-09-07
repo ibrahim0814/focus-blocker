@@ -29,5 +29,5 @@ Temporary Items
 .apdisk
 
 # Personal customizations to blocked sites
-# Uncomment the line below if you want to keep your personal blocked_sites.txt private
+# The user's customized blocked_sites.txt should not be tracked
 blocked_sites.txt

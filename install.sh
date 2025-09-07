@@ -35,6 +35,15 @@ echo -e "${BLUE}Making scripts executable...${NC}"
 chmod +x "$SCRIPT_DIR/focus"
 chmod +x "$SCRIPT_DIR/unfocus"
 
+# Set up configuration file if it doesn't exist
+if [ ! -f "$SCRIPT_DIR/blocked_sites.txt" ]; then
+    echo -e "${BLUE}Creating default blocked sites configuration...${NC}"
+    cp "$SCRIPT_DIR/blocked_sites_default.txt" "$SCRIPT_DIR/blocked_sites.txt"
+    echo -e "${GREEN}✓ Created blocked_sites.txt with default sites${NC}"
+else
+    echo -e "${YELLOW}✓ Using existing blocked_sites.txt configuration${NC}"
+fi
+
 # Create wrapper scripts in /usr/local/bin
 echo -e "${BLUE}Installing focus command...${NC}"
 sudo tee "$INSTALL_DIR/focus" > /dev/null << EOF
