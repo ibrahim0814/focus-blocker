@@ -1,0 +1,245 @@
+#!/bin/bash
+
+# Focus Blocker - Block distracting websites
+# Usage: focus, unfocus, focus list, focus add <site>, focus remove <site>
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="$SCRIPT_DIR/blocked_sites.txt"
+HOSTS_FILE="/etc/hosts"
+BACKUP_FILE="$SCRIPT_DIR/hosts_backup"
+FOCUS_MARKER="# FOCUS_BLOCKER_START"
+FOCUS_MARKER_END="# FOCUS_BLOCKER_END"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Initialize config file if it doesn't exist
+init_config() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        cat > "$CONFIG_FILE" << EOF
+# Focus Blocker - Blocked Sites Configuration
+# Add one domain per line (without http:// or https://)
+# Examples:
+x.com
+twitter.com
+facebook.com
+instagram.com
+reddit.com
+youtube.com
+EOF
+        echo -e "${GREEN}Created default config file: $CONFIG_FILE${NC}"
+        echo -e "${BLUE}Edit this file to customize your blocked sites.${NC}"
+    fi
+}
+
+# Create backup of original hosts file
+backup_hosts() {
+    if [ ! -f "$BACKUP_FILE" ]; then
+        sudo cp "$HOSTS_FILE" "$BACKUP_FILE"
+        echo -e "${GREEN}Backed up original hosts file${NC}"
+    fi
+}
+
+# Check if focus mode is currently active
+is_focused() {
+    grep -q "$FOCUS_MARKER" "$HOSTS_FILE" 2>/dev/null
+}
+
+# Get blocked sites from config
+get_blocked_sites() {
+    if [ -f "$CONFIG_FILE" ]; then
+        grep -v "^#" "$CONFIG_FILE" | grep -v "^$" | sort -u
+    fi
+}
+
+# Add focus block entries to hosts file
+focus_on() {
+    if is_focused; then
+        echo -e "${YELLOW}Focus mode is already active!${NC}"
+        return 0
+    fi
+    
+    echo -e "${BLUE}Activating focus mode...${NC}"
+    backup_hosts
+    
+    # Create temporary file with blocked sites
+    TEMP_FILE=$(mktemp)
+    {
+        echo ""
+        echo "$FOCUS_MARKER"
+        echo "# Blocked by Focus Blocker - $(date)"
+        get_blocked_sites | while read -r site; do
+            if [ -n "$site" ]; then
+                echo "127.0.0.1 $site"
+                echo "127.0.0.1 www.$site"
+                echo "::1 $site"
+                echo "::1 www.$site"
+            fi
+        done
+        echo "$FOCUS_MARKER_END"
+    } > "$TEMP_FILE"
+    
+    # Append to hosts file
+    sudo sh -c "cat '$TEMP_FILE' >> '$HOSTS_FILE'"
+    rm "$TEMP_FILE"
+    
+    # Flush DNS cache
+    sudo dscacheutil -flushcache
+    sudo killall -HUP mDNSResponder 2>/dev/null
+    
+    blocked_count=$(get_blocked_sites | wc -l | tr -d ' ')
+    echo -e "${GREEN}✓ Focus mode activated! Blocked $blocked_count websites.${NC}"
+    echo -e "${BLUE}Run 'unfocus' to disable.${NC}"
+}
+
+# Remove focus block entries from hosts file
+focus_off() {
+    if ! is_focused; then
+        echo -e "${YELLOW}Focus mode is not currently active.${NC}"
+        return 0
+    fi
+    
+    echo -e "${BLUE}Deactivating focus mode...${NC}"
+    
+    # Remove focus blocker section from hosts file
+    sudo sed -i.bak "/$FOCUS_MARKER/,/$FOCUS_MARKER_END/d" "$HOSTS_FILE"
+    
+    # Flush DNS cache
+    sudo dscacheutil -flushcache
+    sudo killall -HUP mDNSResponder 2>/dev/null
+    
+    echo -e "${GREEN}✓ Focus mode deactivated! All sites unblocked.${NC}"
+}
+
+# List currently blocked sites
+list_sites() {
+    echo -e "${BLUE}Currently configured blocked sites:${NC}"
+    if [ -f "$CONFIG_FILE" ]; then
+        get_blocked_sites | while read -r site; do
+            if [ -n "$site" ]; then
+                if is_focused; then
+                    echo -e "  ${RED}🚫 $site (blocked)${NC}"
+                else
+                    echo -e "  ${YELLOW}⚠️  $site (not blocked)${NC}"
+                fi
+            fi
+        done
+        
+        if is_focused; then
+            echo -e "\n${GREEN}Focus mode is currently: ACTIVE${NC}"
+        else
+            echo -e "\n${YELLOW}Focus mode is currently: INACTIVE${NC}"
+        fi
+    else
+        echo -e "${RED}No config file found. Run 'focus' to create one.${NC}"
+    fi
+}
+
+# Add a site to block list
+add_site() {
+    local site="$1"
+    if [ -z "$site" ]; then
+        echo -e "${RED}Please specify a site to add${NC}"
+        echo "Usage: focus add <site>"
+        return 1
+    fi
+    
+    # Remove protocol and www prefix if present
+    site=$(echo "$site" | sed 's|https\?://||' | sed 's|^www\.||')
+    
+    init_config
+    
+    if grep -q "^$site$" "$CONFIG_FILE" 2>/dev/null; then
+        echo -e "${YELLOW}Site '$site' is already in the block list${NC}"
+    else
+        echo "$site" >> "$CONFIG_FILE"
+        echo -e "${GREEN}✓ Added '$site' to block list${NC}"
+        
+        if is_focused; then
+            echo -e "${BLUE}Reactivating focus mode with new site...${NC}"
+            focus_off
+            focus_on
+        fi
+    fi
+}
+
+# Remove a site from block list
+remove_site() {
+    local site="$1"
+    if [ -z "$site" ]; then
+        echo -e "${RED}Please specify a site to remove${NC}"
+        echo "Usage: focus remove <site>"
+        return 1
+    fi
+    
+    # Remove protocol and www prefix if present
+    site=$(echo "$site" | sed 's|https\?://||' | sed 's|^www\.||')
+    
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo -e "${RED}No config file found${NC}"
+        return 1
+    fi
+    
+    if grep -q "^$site$" "$CONFIG_FILE"; then
+        grep -v "^$site$" "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+        echo -e "${GREEN}✓ Removed '$site' from block list${NC}"
+        
+        if is_focused; then
+            echo -e "${BLUE}Reactivating focus mode without removed site...${NC}"
+            focus_off
+            focus_on
+        fi
+    else
+        echo -e "${YELLOW}Site '$site' was not found in the block list${NC}"
+    fi
+}
+
+# Show help
+show_help() {
+    echo -e "${BLUE}Focus Blocker - Website blocking utility${NC}"
+    echo ""
+    echo "Commands:"
+    echo "  focus           - Activate focus mode (block sites)"
+    echo "  unfocus         - Deactivate focus mode (unblock sites)"
+    echo "  focus list      - Show blocked sites and current status"
+    echo "  focus add <site> - Add a site to block list"
+    echo "  focus remove <site> - Remove a site from block list"
+    echo "  focus help      - Show this help"
+    echo ""
+    echo "Examples:"
+    echo "  focus add x.com"
+    echo "  focus add reddit.com"
+    echo "  focus remove youtube.com"
+    echo ""
+    echo -e "${YELLOW}Config file: $CONFIG_FILE${NC}"
+}
+
+# Main logic
+case "$1" in
+    "")
+        init_config
+        focus_on
+        ;;
+    "list")
+        init_config
+        list_sites
+        ;;
+    "add")
+        add_site "$2"
+        ;;
+    "remove")
+        remove_site "$2"
+        ;;
+    "help")
+        show_help
+        ;;
+    *)
+        echo -e "${RED}Unknown command: $1${NC}"
+        show_help
+        exit 1
+        ;;
+esac

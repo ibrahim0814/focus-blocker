@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Unfocus command - wrapper that calls the focus script to deactivate blocking
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FOCUS_SCRIPT="$SCRIPT_DIR/focus"
+
+# Check if focus script exists
+if [ ! -f "$FOCUS_SCRIPT" ]; then
+    echo "Error: Focus script not found at $FOCUS_SCRIPT"
+    exit 1
+fi
+
+# Import functions and run focus_off
+source "$FOCUS_SCRIPT"
+focus_off
