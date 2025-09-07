@@ -1,16 +1,38 @@
 #!/bin/bash
 
-# Unfocus command - wrapper that calls the focus script to deactivate blocking
+# Unfocus command - deactivate website blocking
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FOCUS_SCRIPT="$SCRIPT_DIR/focus"
+HOSTS_FILE="/etc/hosts"
+FOCUS_MARKER="# FOCUS_BLOCKER_START"
+FOCUS_MARKER_END="# FOCUS_BLOCKER_END"
 
-# Check if focus script exists
-if [ ! -f "$FOCUS_SCRIPT" ]; then
-    echo "Error: Focus script not found at $FOCUS_SCRIPT"
-    exit 1
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Check if focus mode is currently active
+is_focused() {
+    grep -q "$FOCUS_MARKER" "$HOSTS_FILE" 2>/dev/null
+}
+
+# Remove focus block entries from hosts file
+if ! is_focused; then
+    echo -e "${YELLOW}Focus mode is not currently active.${NC}"
+    exit 0
 fi
 
-# Import functions and run focus_off
-source "$FOCUS_SCRIPT"
-focus_off
+echo -e "${BLUE}Deactivating focus mode...${NC}"
+
+# Remove focus blocker section from hosts file
+sudo sed -i.bak "/$FOCUS_MARKER/,/$FOCUS_MARKER_END/d" "$HOSTS_FILE"
+
+# Flush DNS cache
+sudo dscacheutil -flushcache
+sudo killall -HUP mDNSResponder 2>/dev/null
+
+echo -e "${GREEN}✓ Focus mode deactivated! All sites unblocked.${NC}"
