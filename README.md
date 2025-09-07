@@ -5,6 +5,9 @@ A simple terminal-based website blocker for macOS that helps you stay focused by
 ## Features
 
 - ✅ **Simple Commands**: Just run `focus` to block sites and `unfocus` to unblock them
+- ✅ **Smart Session Management**: Automatically saves and restores browser tabs when activating focus mode
+- ✅ **Intelligent URL Filtering**: Skips restoring tabs from blocked sites - no wasted effort
+- ✅ **Multi-Browser Support**: Works with Chrome, Safari, Brave, and Comet browsers
 - ✅ **Customizable Block List**: Easily add/remove sites from your block list
 - ✅ **Works System-Wide**: Blocks websites in all browsers and applications
 - ✅ **No Background Processes**: Uses the system's hosts file, no daemon required
@@ -14,6 +17,21 @@ A simple terminal-based website blocker for macOS that helps you stay focused by
 ## How It Works
 
 Focus Blocker works by modifying your system's `/etc/hosts` file to redirect blocked websites to `127.0.0.1` (localhost). This means when you try to visit a blocked site, it won't be able to connect, effectively blocking access.
+
+### Browser Session Management
+
+When you activate focus mode, Focus Blocker intelligently manages your browser sessions:
+
+1. **Saves all open tabs** from Chrome, Safari, and Brave using AppleScript
+2. **Closes browsers** to ensure they pick up the new hosts file entries
+3. **Updates the hosts file** to block distracting websites
+4. **Restores only productive tabs** - automatically filters out and skips tabs from blocked sites
+5. **Provides clear feedback** about which blocked sites were skipped during restoration
+
+This ensures that:
+- 🔄 **No work is lost** - all your productive tabs are preserved and restored
+- ⚡ **Blocking is immediate** - browsers restart fresh and respect the hosts file
+- 🎯 **Clean focus** - blocked site tabs aren't restored, keeping your workspace distraction-free
 
 ## Installation
 
@@ -99,7 +117,18 @@ The default configuration includes common distracting websites:
 ```bash
 # Start focusing (blocks all configured sites)
 $ focus
-✓ Focus mode activated! Blocked 15 websites.
+Activating focus mode...
+Saving browser sessions and closing browsers...
+  Saving Chrome tabs...
+    ✓ Saved Chrome session
+  ✓ Closed Chrome
+✓ Focus mode activated! Blocked 17 websites.
+Restoring browser sessions...
+  Restoring Chrome tabs...
+    ⚠️  Skipped blocked site: youtube.com
+    ⚠️  Skipped blocked site: reddit.com
+    ✓ Restored Chrome session (8 tabs, 2 blocked tabs skipped)
+✓ Browser sessions restored
 Run 'unfocus' to disable.
 
 # Check what's being blocked
@@ -116,7 +145,7 @@ Focus mode is currently: ACTIVE
 $ focus add pinterest.com
 ✓ Added 'pinterest.com' to block list
 Reactivating focus mode with new site...
-✓ Focus mode activated! Blocked 16 websites.
+✓ Focus mode activated! Blocked 18 websites.
 
 # Stop focusing (unblocks all sites)
 $ unfocus
@@ -161,9 +190,15 @@ If you get permission errors:
 ### Sites Still Accessible
 If blocked sites are still accessible:
 1. Check if focus mode is active: `focus list`
-2. Try flushing DNS cache manually: `sudo dscacheutil -flushcache`
-3. Restart your browser
+2. The script automatically restarts browsers to ensure blocking works
+3. If issues persist, try manually flushing DNS cache: `sudo dscacheutil -flushcache`
 4. Check if the site uses a different domain (like redirects)
+
+### Browser Session Issues
+If browser tabs aren't being restored properly:
+1. Ensure browsers have AppleScript access permissions in System Preferences > Security & Privacy > Privacy > Automation
+2. Check that the browsers are properly closed before hosts file modification
+3. Session files are temporarily stored in `.browser_sessions/` directory - these are cleaned up automatically
 
 ### Restoring Original Hosts File
 If something goes wrong, you can restore your original hosts file:
@@ -207,10 +242,12 @@ This project is open source and available under the MIT License.
 
 Unlike browser extensions that can be easily disabled or bypassed:
 - ✅ Works across **all browsers** and applications
+- ✅ **Intelligent session management** - preserves your work while blocking distractions
 - ✅ **Harder to bypass** - requires conscious effort to disable
 - ✅ **No browser dependencies** - works even if you switch browsers
+- ✅ **Smart URL filtering** - doesn't waste time restoring tabs from blocked sites
 - ✅ **Lightweight** - no background processes or memory usage
-- ✅ **Privacy-focused** - all blocking happens locally
+- ✅ **Privacy-focused** - all blocking and session management happens locally
 
 ---
 

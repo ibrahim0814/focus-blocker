@@ -56,6 +56,248 @@ get_blocked_sites() {
     fi
 }
 
+# Session management directory
+SESSION_DIR="$SCRIPT_DIR/.browser_sessions"
+
+# Create session directory if it doesn't exist
+init_session_dir() {
+    mkdir -p "$SESSION_DIR"
+}
+
+# Check if a URL matches any blocked site
+is_url_blocked() {
+    local url="$1"
+    if [ -z "$url" ]; then
+        return 1
+    fi
+    
+    # Extract domain from URL (remove protocol, path, etc.)
+    local domain=$(echo "$url" | sed 's|https://||' | sed 's|http://||' | sed 's|www\.||' | cut -d'/' -f1 | cut -d'?' -f1 | cut -d'#' -f1)
+    
+    # Check if domain matches any blocked site
+    while read -r blocked_site; do
+        if [ -n "$blocked_site" ]; then
+            # Check exact match or if domain ends with blocked site (for subdomains)
+            if [ "$domain" = "$blocked_site" ] || echo "$domain" | grep -q "\.$blocked_site$"; then
+                return 0  # URL is blocked
+            fi
+        fi
+    done <<< "$(get_blocked_sites)"
+    
+    return 1  # URL is not blocked
+}
+
+# Save Chrome tabs using AppleScript
+save_chrome_session() {
+    if pgrep -f "Google Chrome" > /dev/null; then
+        echo -e "${BLUE}  Saving Chrome tabs...${NC}"
+        osascript << 'EOF' > "$SESSION_DIR/chrome_urls.txt" 2>/dev/null
+tell application "Google Chrome"
+    set urlList to {}
+    repeat with w in windows
+        repeat with t in tabs of w
+            set end of urlList to URL of t
+        end repeat
+    end repeat
+    return urlList as string
+end tell
+EOF
+        if [ -s "$SESSION_DIR/chrome_urls.txt" ]; then
+            echo -e "${YELLOW}    ✓ Saved Chrome session${NC}"
+            return 0
+        else
+            rm -f "$SESSION_DIR/chrome_urls.txt"
+            return 1
+        fi
+    fi
+    return 1
+}
+
+# Save Safari tabs using AppleScript  
+save_safari_session() {
+    if pgrep -f "Safari" > /dev/null; then
+        echo -e "${BLUE}  Saving Safari tabs...${NC}"
+        osascript << 'EOF' > "$SESSION_DIR/safari_urls.txt" 2>/dev/null
+tell application "Safari"
+    set urlList to {}
+    repeat with w in windows
+        repeat with t in tabs of w
+            set end of urlList to URL of t
+        end repeat
+    end repeat
+    return urlList as string
+end tell
+EOF
+        if [ -s "$SESSION_DIR/safari_urls.txt" ]; then
+            echo -e "${YELLOW}    ✓ Saved Safari session${NC}"
+            return 0
+        else
+            rm -f "$SESSION_DIR/safari_urls.txt"
+            return 1
+        fi
+    fi
+    return 1
+}
+
+# Save Brave tabs using AppleScript (same as Chrome but for Brave)
+save_brave_session() {
+    if pgrep -f "Brave Browser" > /dev/null; then
+        echo -e "${BLUE}  Saving Brave tabs...${NC}"
+        osascript << 'EOF' > "$SESSION_DIR/brave_urls.txt" 2>/dev/null
+tell application "Brave Browser"
+    set urlList to {}
+    repeat with w in windows
+        repeat with t in tabs of w
+            set end of urlList to URL of t
+        end repeat
+    end repeat
+    return urlList as string
+end tell
+EOF
+        if [ -s "$SESSION_DIR/brave_urls.txt" ]; then
+            echo -e "${YELLOW}    ✓ Saved Brave session${NC}"
+            return 0
+        else
+            rm -f "$SESSION_DIR/brave_urls.txt"
+            return 1
+        fi
+    fi
+    return 1
+}
+
+# Restore Chrome session
+restore_chrome_session() {
+    if [ -f "$SESSION_DIR/chrome_urls.txt" ] && [ -s "$SESSION_DIR/chrome_urls.txt" ]; then
+        echo -e "${BLUE}  Restoring Chrome tabs...${NC}"
+        
+        # Parse URLs and filter out blocked sites
+        urls=$(cat "$SESSION_DIR/chrome_urls.txt" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+        
+        if [ -n "$urls" ]; then
+            restored_count=0
+            blocked_count=0
+            
+            while IFS= read -r url; do
+                if [ -n "$url" ] && [ "$url" != "" ]; then
+                    if is_url_blocked "$url"; then
+                        blocked_count=$((blocked_count + 1))
+                        echo -e "${RED}    ⚠️  Skipped blocked site: $(echo "$url" | cut -d'/' -f3)${NC}"
+                    else
+                        open -a "Google Chrome" "$url" 2>/dev/null
+                        restored_count=$((restored_count + 1))
+                    fi
+                fi
+            done <<< "$urls"
+            
+            echo -e "${YELLOW}    ✓ Restored Chrome session ($restored_count tabs, $blocked_count blocked tabs skipped)${NC}"
+        fi
+        
+        rm -f "$SESSION_DIR/chrome_urls.txt"
+    fi
+}
+
+# Restore Safari session
+restore_safari_session() {
+    if [ -f "$SESSION_DIR/safari_urls.txt" ] && [ -s "$SESSION_DIR/safari_urls.txt" ]; then
+        echo -e "${BLUE}  Restoring Safari tabs...${NC}"
+        
+        # Parse URLs and filter out blocked sites
+        urls=$(cat "$SESSION_DIR/safari_urls.txt" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+        
+        if [ -n "$urls" ]; then
+            restored_count=0
+            blocked_count=0
+            
+            while IFS= read -r url; do
+                if [ -n "$url" ] && [ "$url" != "" ]; then
+                    if is_url_blocked "$url"; then
+                        blocked_count=$((blocked_count + 1))
+                        echo -e "${RED}    ⚠️  Skipped blocked site: $(echo "$url" | cut -d'/' -f3)${NC}"
+                    else
+                        open -a "Safari" "$url" 2>/dev/null
+                        restored_count=$((restored_count + 1))
+                    fi
+                fi
+            done <<< "$urls"
+            
+            echo -e "${YELLOW}    ✓ Restored Safari session ($restored_count tabs, $blocked_count blocked tabs skipped)${NC}"
+        fi
+        
+        rm -f "$SESSION_DIR/safari_urls.txt"
+    fi
+}
+
+# Restore Brave session
+restore_brave_session() {
+    if [ -f "$SESSION_DIR/brave_urls.txt" ] && [ -s "$SESSION_DIR/brave_urls.txt" ]; then
+        echo -e "${BLUE}  Restoring Brave tabs...${NC}"
+        
+        # Parse URLs and filter out blocked sites
+        urls=$(cat "$SESSION_DIR/brave_urls.txt" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+        
+        if [ -n "$urls" ]; then
+            restored_count=0
+            blocked_count=0
+            
+            while IFS= read -r url; do
+                if [ -n "$url" ] && [ "$url" != "" ]; then
+                    if is_url_blocked "$url"; then
+                        blocked_count=$((blocked_count + 1))
+                        echo -e "${RED}    ⚠️  Skipped blocked site: $(echo "$url" | cut -d'/' -f3)${NC}"
+                    else
+                        open -a "Brave Browser" "$url" 2>/dev/null
+                        restored_count=$((restored_count + 1))
+                    fi
+                fi
+            done <<< "$urls"
+            
+            echo -e "${YELLOW}    ✓ Restored Brave session ($restored_count tabs, $blocked_count blocked tabs skipped)${NC}"
+        fi
+        
+        rm -f "$SESSION_DIR/brave_urls.txt"
+    fi
+}
+
+# Save all browser sessions and close browsers
+save_and_close_browsers() {
+    echo -e "${BLUE}Saving browser sessions and closing browsers...${NC}"
+    init_session_dir
+    
+    # Save sessions
+    save_chrome_session
+    save_safari_session
+    save_brave_session
+    
+    # Close browsers
+    killall "Google Chrome" 2>/dev/null && echo -e "${YELLOW}  ✓ Closed Chrome${NC}"
+    killall "Brave Browser" 2>/dev/null && echo -e "${YELLOW}  ✓ Closed Brave${NC}"
+    killall "Safari" 2>/dev/null && echo -e "${YELLOW}  ✓ Closed Safari${NC}"
+    killall "Comet" 2>/dev/null && echo -e "${YELLOW}  ✓ Closed Comet${NC}"
+    
+    # Also kill common browser process names
+    killall "chrome" 2>/dev/null
+    killall "brave" 2>/dev/null
+    killall "safari" 2>/dev/null
+    killall "comet" 2>/dev/null
+    
+    sleep 2  # Give browsers time to fully close
+}
+
+# Restore all browser sessions
+restore_browser_sessions() {
+    echo -e "${BLUE}Restoring browser sessions...${NC}"
+    
+    # Wait a moment for hosts file changes to take effect
+    sleep 1
+    
+    # Restore sessions
+    restore_chrome_session
+    restore_safari_session  
+    restore_brave_session
+    
+    echo -e "${GREEN}✓ Browser sessions restored${NC}"
+}
+
 # Add focus block entries to hosts file
 focus_on() {
     if is_focused; then
@@ -64,6 +306,10 @@ focus_on() {
     fi
     
     echo -e "${BLUE}Activating focus mode...${NC}"
+    
+    # Save browser sessions and close browsers to ensure they pick up the new hosts entries
+    save_and_close_browsers
+    
     backup_hosts
     
     # Create temporary file with blocked sites
@@ -93,6 +339,10 @@ focus_on() {
     
     blocked_count=$(get_blocked_sites | wc -l | tr -d ' ')
     echo -e "${GREEN}✓ Focus mode activated! Blocked $blocked_count websites.${NC}"
+    
+    # Restore browser sessions
+    restore_browser_sessions
+    
     echo -e "${BLUE}Run 'unfocus' to disable.${NC}"
 }
 

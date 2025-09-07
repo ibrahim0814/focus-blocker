@@ -8,7 +8,6 @@ twitter.com
 facebook.com
 instagram.com
 reddit.com
-youtube.com
 tiktok.com
 snapchat.com
 linkedin.com
@@ -26,3 +25,4 @@ pinterest.com
 # Gaming
 twitch.tv
 steam.com
+youtube.com
