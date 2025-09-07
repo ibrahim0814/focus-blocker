@@ -3,7 +3,7 @@
 # Focus Blocker - Block distracting websites with intelligent session management and Spotify integration
 # Usage: 
 #   focus                              - Block websites and save/restore browser sessions
-#   focus -s [playlist]                - Block websites + launch Spotify playlist (shows playlist name when playing)
+#   focus -s [playlist]                - Block websites + launch Spotify playlist
 #   focus list                         - Show blocked sites and current status  
 #   focus playlists                    - List available Spotify playlists
 #   focus playlist add <name> <url>    - Add new Spotify playlist
@@ -284,94 +284,8 @@ EOF
         fi
     fi
 
-    # Wait for playback to actually start before minimizing
-    local playback_confirmed=false
-    local attempts=0
-    local max_attempts=10
-    
-    # Check if playback actually started (wait up to 10 seconds)
-    while [ $attempts -lt $max_attempts ] && [ "$playback_confirmed" = "false" ]; do
-        sleep 1
-        attempts=$((attempts + 1))
-        
-        # Check if Spotify is actually playing
-        local player_state=$(osascript -e 'tell application "Spotify" to get player state' 2>/dev/null)
-        local current_track=$(osascript -e 'tell application "Spotify" to get name of current track' 2>/dev/null)
-        
-        if [ "$player_state" = "playing" ] && [ -n "$current_track" ] && [ "$current_track" != "" ]; then
-            playback_confirmed=true
-            break
-        fi
-    done
-    
-    # Close Spotify window after confirming playback (music continues in background)
-    sleep 1  # Brief pause before closing
-    
-    # Close the Spotify window - much simpler and more reliable than minimizing
-    local window_closed=false
-
-    # Method 1: Close window using AppleScript
-    local close_result=$(osascript << EOF 2>/dev/null
-tell application "Spotify"
-    try
-        -- First check if Spotify is running
-        if it is running then
-            -- Check if there are any windows before trying to close
-            if (count windows) > 0 then
-                close window 1
-                return "success"
-            else
-                return "no_windows"
-            end if
-        else
-            return "not_running"
-        end if
-    on error errMsg
-        return "failed: " & errMsg
-    end try
-end tell
-EOF
-)
-
-    if [ "$close_result" = "success" ]; then
-        window_closed=true
-    elif [ "$close_result" = "no_windows" ]; then
-        window_closed=true
-    elif [ "$close_result" = "not_running" ]; then
-        # Spotify not running - do nothing
-        true
-    else
-        # Method 2: Use System Events to close window (Cmd+W)
-        local keyboard_result=$(osascript << EOF 2>/dev/null
-tell application "System Events"
-    tell process "Spotify"
-        try
-            -- Make sure Spotify window is active first
-            set frontmost to true
-            delay 0.5
-
-            -- Use keyboard shortcut to close window (Cmd+W)
-            keystroke "w" using command down
-            return "keyboard_close"
-        on error errMsg
-            return "system_events_failed: " & errMsg
-        end try
-    end tell
-end tell
-EOF
-)
-
-        if [ "$keyboard_result" = "keyboard_close" ]; then
-            window_closed=true
-        fi
-    fi
-
-    # Simple verification - just check if we attempted to close
-    if [ "$window_closed" != "true" ]; then
-        echo -e "${YELLOW}  ⚠️  Could not close Spotify window automatically${NC}"
-        echo -e "${BLUE}    You can close it manually with Cmd+W or click the red close button${NC}"
-        echo -e "${BLUE}    Music will continue playing in the background${NC}"
-    fi
+    # Wait a moment for playback to start
+    sleep 2
 
     # Final status report
     local player_state=$(osascript -e 'tell application "Spotify" to get player state' 2>/dev/null)
@@ -873,8 +787,8 @@ show_help() {
     echo ""
     echo "Commands:"
     echo "  focus                    - Activate focus mode (block sites)"
-    echo "  focus -s                 - Activate focus mode + launch default Spotify playlist (auto-plays)"
-    echo "  focus -s <name>          - Activate focus mode + launch named Spotify playlist (auto-plays)"
+    echo "  focus -s                 - Activate focus mode + launch default Spotify playlist"
+    echo "  focus -s <name>          - Activate focus mode + launch named Spotify playlist"
     echo "  unfocus                  - Deactivate focus mode (unblock sites)"
     echo "  focus list               - Show blocked sites and current status"
     echo "  focus playlists          - Show available Spotify playlists"
