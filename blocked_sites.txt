@@ -20,8 +20,6 @@ news.ycombinator.com
 # Common Time Wasters
 imgur.com
 pinterest.com
-gmail.com
-mail.google.com
 
 # Gaming
 twitch.tv
