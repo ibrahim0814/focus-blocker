@@ -64,7 +64,7 @@ Focus Blocker is a terminal-based website blocker for macOS that helps users sta
 - **spotify_config.txt**: Contains Spotify playlist URIs for focus mode with pre-configured productivity playlists
 - **Format**: Plain text, comments start with #
 - **Default sites**: Includes x.com, twitter.com, reddit.com, youtube.com, facebook.com, instagram.com, tiktok.com, etc.
-- **Default playlists**: Includes focus, study, coding, jazz, piano, lofi, nature, and noise playlists for different productivity needs
+- **Default playlists**: Includes deep, study, coding, jazz, piano, lofi, nature, and noise playlists for different productivity needs
 - **Spotify Integration**: Uses AppleScript to control Spotify playback and URI scheme to open playlists. Automatically starts playback and shows playlist name instead of song name. Supports custom playlists via `focus playlist add` command.
 
 ## Terminal Output Design

@@ -114,7 +114,7 @@ This ensures that:
 ### Managing Spotify Playlists
 
 Focus Blocker comes with several pre-configured productivity playlists:
-- **focus** - Deep focus music
+- **deep** - Deep focus music
 - **study** - Study-friendly tracks  
 - **coding** - Programming background music
 - **jazz** - Smooth jazz for concentration
@@ -130,6 +130,7 @@ Focus Blocker comes with several pre-configured productivity playlists:
 
 - **Use a specific playlist**:
   ```bash
+  focus -s deep          # Launch with deep focus music
   focus -s coding        # Launch with coding playlist
   focus -s jazz          # Launch with jazz playlist  
   focus -s nature        # Launch with nature sounds
@@ -205,7 +206,7 @@ Focus mode is currently: ACTIVE
 $ focus playlists
 Available Spotify playlists:
   default - spotify:playlist:37i9dQZF1DWWQRwui0ExPn
-  focus - spotify:playlist:37i9dQZF1DWZeKCadgRdKQ
+  deep - spotify:playlist:37i9dQZF1DWZeKCadgRdKQ
   study - spotify:playlist:6zCID88oNjNv9zx6puDHKj
   coding - spotify:playlist:37i9dQZF1DX5trt9i14X7j
   jazz - spotify:playlist:37i9dQZF1DWV7EzJMK2FUI
