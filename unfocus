@@ -22,12 +22,16 @@ is_focused() {
 
 # Disable Do Not Disturb mode
 disable_dnd() {
-    echo -e "${BLUE}Disabling Do Not Disturb...${NC}"
-    
-    # Use the custom DND OFF shortcut
-    shortcuts run "DND OFF" 2>/dev/null
-    
-    echo -e "${GREEN}✓ Do Not Disturb disabled${NC}"
+    # Check if shortcuts exist
+    if shortcuts list 2>/dev/null | grep -q "^DND OFF$"; then
+        echo -e "${BLUE}Disabling Do Not Disturb...${NC}"
+        shortcuts run "DND OFF" 2>/dev/null
+        echo -e "${GREEN}✓ Do Not Disturb disabled${NC}"
+    else
+        # Silently skip if shortcut doesn't exist
+        # User would have been warned when running focus command
+        true
+    fi
 }
 
 # Remove focus block entries from hosts file

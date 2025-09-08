@@ -703,24 +703,72 @@ focus_on() {
     restore_browser_sessions
 }
 
+# Check if DND shortcuts exist and provide setup instructions if needed
+check_dnd_shortcuts() {
+    local missing_shortcuts=0
+    
+    # Check if DND ON shortcut exists
+    if ! shortcuts list 2>/dev/null | grep -q "^DND ON$"; then
+        missing_shortcuts=1
+        echo -e "${YELLOW}⚠️  'DND ON' shortcut not found${NC}"
+    fi
+    
+    # Check if DND OFF shortcut exists
+    if ! shortcuts list 2>/dev/null | grep -q "^DND OFF$"; then
+        missing_shortcuts=1
+        echo -e "${YELLOW}⚠️  'DND OFF' shortcut not found${NC}"
+    fi
+    
+    if [ $missing_shortcuts -eq 1 ]; then
+        echo -e "${BLUE}To enable Do Not Disturb support, please create these shortcuts:${NC}"
+        echo -e ""
+        echo -e "${GREEN}1. Create 'DND ON' shortcut:${NC}"
+        echo -e "   • Open Shortcuts app"
+        echo -e "   • Click '+' to create new shortcut"
+        echo -e "   • Search for and add 'Set Focus' action"
+        echo -e "   • Set it to 'Do Not Disturb' (On until turned off)"
+        echo -e "   • Name the shortcut exactly: ${YELLOW}DND ON${NC}"
+        echo -e ""
+        echo -e "${GREEN}2. Create 'DND OFF' shortcut:${NC}"
+        echo -e "   • Create another new shortcut"
+        echo -e "   • Search for and add 'Turn Off Focus' action"
+        echo -e "   • Name the shortcut exactly: ${YELLOW}DND OFF${NC}"
+        echo -e ""
+        echo -e "${BLUE}Once created, run focus again to use Do Not Disturb${NC}"
+        return 1
+    fi
+    return 0
+}
+
 # Enable Do Not Disturb mode
 enable_dnd() {
-    echo -e "${BLUE}Enabling Do Not Disturb...${NC}"
-    
-    # Use the custom DND ON shortcut
-    shortcuts run "DND ON" 2>/dev/null
-    
-    echo -e "${GREEN}✓ Do Not Disturb enabled${NC}"
+    # Check if shortcuts exist
+    if shortcuts list 2>/dev/null | grep -q "^DND ON$"; then
+        echo -e "${BLUE}Enabling Do Not Disturb...${NC}"
+        shortcuts run "DND ON" 2>/dev/null
+        echo -e "${GREEN}✓ Do Not Disturb enabled${NC}"
+    else
+        # First time running - check and provide instructions
+        if [ ! -f "$HOME/.focus_blocker_dnd_warned" ]; then
+            echo -e ""
+            check_dnd_shortcuts
+            touch "$HOME/.focus_blocker_dnd_warned"
+            echo -e "${YELLOW}Continuing without Do Not Disturb...${NC}"
+        fi
+    fi
 }
 
 # Disable Do Not Disturb mode
 disable_dnd() {
-    echo -e "${BLUE}Disabling Do Not Disturb...${NC}"
-    
-    # Use the custom DND OFF shortcut
-    shortcuts run "DND OFF" 2>/dev/null
-    
-    echo -e "${GREEN}✓ Do Not Disturb disabled${NC}"
+    # Check if shortcuts exist
+    if shortcuts list 2>/dev/null | grep -q "^DND OFF$"; then
+        echo -e "${BLUE}Disabling Do Not Disturb...${NC}"
+        shortcuts run "DND OFF" 2>/dev/null
+        echo -e "${GREEN}✓ Do Not Disturb disabled${NC}"
+    else
+        # Silently skip if shortcut doesn't exist (user was already warned)
+        true
+    fi
 }
 
 # Remove focus block entries from hosts file
