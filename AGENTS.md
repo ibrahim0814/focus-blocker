@@ -39,11 +39,12 @@ Focus Blocker is a terminal-based website blocker for macOS that helps users sta
 - **Install location**: `/usr/local/bin/focus` and `/usr/local/bin/unfocus`
 - **DNS cache flush**: Uses `dscacheutil -flushcache` and `killall -HUP mDNSResponder`
 - **Do Not Disturb**: Automatically enables/disables macOS Do Not Disturb when focus mode is activated/deactivated
-  - Uses custom Shortcuts app shortcuts: "DND ON" and "DND OFF"
-  - Auto-detects if shortcuts are missing and provides setup instructions
-  - Step-by-step guidance for creating shortcuts on first run
-  - Gracefully handles missing shortcuts without errors
-  - Reliable method using macOS native shortcuts system
+  - Primary method: Uses custom Shortcuts app shortcuts: "DND ON" and "DND OFF"
+  - Fallback method: Controls Focus mode via Control Center menu bar using AppleScript
+  - Auto-detects if shortcuts are missing and tries fallback methods
+  - Provides setup instructions for creating shortcuts if all methods fail
+  - Multiple layers of fallback for maximum compatibility
+  - Works out-of-the-box on most macOS systems
 
 ## Security Considerations
 - **Requires sudo**: Scripts need root access to modify /etc/hosts
