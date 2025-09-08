@@ -40,7 +40,9 @@ Focus Blocker is a terminal-based website blocker for macOS that helps users sta
 - **DNS cache flush**: Uses `dscacheutil -flushcache` and `killall -HUP mDNSResponder`
 - **Do Not Disturb**: Automatically enables/disables macOS Do Not Disturb when focus mode is activated/deactivated
   - Uses custom Shortcuts app shortcuts: "DND ON" and "DND OFF"
-  - Requires user to create these shortcuts in the Shortcuts app
+  - Auto-detects if shortcuts are missing and provides setup instructions
+  - Step-by-step guidance for creating shortcuts on first run
+  - Gracefully handles missing shortcuts without errors
   - Reliable method using macOS native shortcuts system
 
 ## Security Considerations

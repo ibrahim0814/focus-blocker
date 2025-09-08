@@ -742,32 +742,79 @@ check_dnd_shortcuts() {
 
 # Enable Do Not Disturb mode
 enable_dnd() {
-    # Check if shortcuts exist
+    # First try using the custom shortcuts if they exist
     if shortcuts list 2>/dev/null | grep -q "^DND ON$"; then
         echo -e "${BLUE}Enabling Do Not Disturb...${NC}"
         shortcuts run "DND ON" 2>/dev/null
         echo -e "${GREEN}✓ Do Not Disturb enabled${NC}"
     else
-        # First time running - check and provide instructions
-        if [ ! -f "$HOME/.focus_blocker_dnd_warned" ]; then
-            echo -e ""
-            check_dnd_shortcuts
-            touch "$HOME/.focus_blocker_dnd_warned"
-            echo -e "${YELLOW}Continuing without Do Not Disturb...${NC}"
+        # Fallback: Try direct methods to enable DND
+        echo -e "${BLUE}Enabling Do Not Disturb...${NC}"
+        
+        # Method 1: Use Focus mode via osascript (works on newer macOS)
+        if osascript -e 'tell application "System Events" to do shell script "shortcuts run \"Set Focus\" <<< \"Do Not Disturb\""' 2>/dev/null; then
+            echo -e "${GREEN}✓ Do Not Disturb enabled${NC}"
+        # Method 2: Use the menu bar Control Center
+        elif osascript << 'EOF' 2>/dev/null
+tell application "System Events"
+    tell application process "ControlCenter"
+        set focusButton to menu bar item "Focus" of menu bar 1
+        if exists focusButton then
+            click focusButton
+            delay 0.5
+            click menu item "Do Not Disturb" of menu 1 of focusButton
+        end if
+    end tell
+end tell
+EOF
+        then
+            echo -e "${GREEN}✓ Do Not Disturb enabled${NC}"
+        else
+            # If none work, provide instructions for first-time setup
+            if [ ! -f "$HOME/.focus_blocker_dnd_warned" ]; then
+                echo -e ""
+                check_dnd_shortcuts
+                touch "$HOME/.focus_blocker_dnd_warned"
+                echo -e "${YELLOW}Continuing without Do Not Disturb...${NC}"
+            else
+                echo -e "${YELLOW}⚠️  Could not enable Do Not Disturb automatically${NC}"
+            fi
         fi
     fi
 }
 
 # Disable Do Not Disturb mode
 disable_dnd() {
-    # Check if shortcuts exist
+    # First try using the custom shortcuts if they exist
     if shortcuts list 2>/dev/null | grep -q "^DND OFF$"; then
         echo -e "${BLUE}Disabling Do Not Disturb...${NC}"
         shortcuts run "DND OFF" 2>/dev/null
         echo -e "${GREEN}✓ Do Not Disturb disabled${NC}"
     else
-        # Silently skip if shortcut doesn't exist (user was already warned)
-        true
+        # Fallback: Try direct methods to disable DND
+        echo -e "${BLUE}Disabling Do Not Disturb...${NC}"
+        
+        # Method 1: Turn off Focus via menu bar
+        if osascript << 'EOF' 2>/dev/null
+tell application "System Events"
+    tell application process "ControlCenter"
+        set focusButton to menu bar item "Focus" of menu bar 1
+        if exists focusButton then
+            click focusButton
+            delay 0.5
+            -- Look for and click "Do Not Disturb" if it's checked (on)
+            try
+                click menu item "Do Not Disturb" of menu 1 of focusButton
+            end try
+        end if
+    end tell
+end tell
+EOF
+        then
+            echo -e "${GREEN}✓ Do Not Disturb disabled${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Could not disable Do Not Disturb automatically${NC}"
+        fi
     fi
 }
 

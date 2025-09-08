@@ -22,15 +22,36 @@ is_focused() {
 
 # Disable Do Not Disturb mode
 disable_dnd() {
-    # Check if shortcuts exist
+    # First try using the custom shortcuts if they exist
     if shortcuts list 2>/dev/null | grep -q "^DND OFF$"; then
         echo -e "${BLUE}Disabling Do Not Disturb...${NC}"
         shortcuts run "DND OFF" 2>/dev/null
         echo -e "${GREEN}✓ Do Not Disturb disabled${NC}"
     else
-        # Silently skip if shortcut doesn't exist
-        # User would have been warned when running focus command
-        true
+        # Fallback: Try direct methods to disable DND
+        echo -e "${BLUE}Disabling Do Not Disturb...${NC}"
+        
+        # Method 1: Turn off Focus via menu bar
+        if osascript << 'EOF' 2>/dev/null
+tell application "System Events"
+    tell application process "ControlCenter"
+        set focusButton to menu bar item "Focus" of menu bar 1
+        if exists focusButton then
+            click focusButton
+            delay 0.5
+            -- Look for and click "Do Not Disturb" if it's checked (on)
+            try
+                click menu item "Do Not Disturb" of menu 1 of focusButton
+            end try
+        end if
+    end tell
+end tell
+EOF
+        then
+            echo -e "${GREEN}✓ Do Not Disturb disabled${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Could not disable Do Not Disturb automatically${NC}"
+        fi
     fi
 }
 

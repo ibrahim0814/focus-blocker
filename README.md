@@ -5,6 +5,7 @@ A simple terminal-based website blocker for macOS that helps you stay focused by
 ## Features
 
 - ✅ **Simple Commands**: Just run `focus` to block sites and `unfocus` to unblock them
+- ✅ **Do Not Disturb Integration**: Automatically enables/disables macOS Do Not Disturb mode
 - ✅ **Smart Session Management**: Automatically saves and restores browser tabs when activating focus mode
 - ✅ **Intelligent URL Filtering**: Skips restoring tabs from blocked sites - no wasted effort
 - ✅ **Multi-Browser Support**: Works with Chrome, Safari, Brave, and Comet browsers (session management for Chrome, Safari, Brave)
