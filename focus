@@ -707,8 +707,8 @@ focus_on() {
 enable_dnd() {
     echo -e "${BLUE}Enabling Do Not Disturb...${NC}"
     
-    # Use F6 key which is typically mapped to Do Not Disturb on macOS
-    osascript -e 'tell application "System Events" to key code 97' 2>/dev/null
+    # Use the custom DND ON shortcut
+    shortcuts run "DND ON" 2>/dev/null
     
     echo -e "${GREEN}✓ Do Not Disturb enabled${NC}"
 }
@@ -717,9 +717,8 @@ enable_dnd() {
 disable_dnd() {
     echo -e "${BLUE}Disabling Do Not Disturb...${NC}"
     
-    # Use F6 key which toggles Do Not Disturb on macOS
-    # If DND is on, F6 will turn it off
-    osascript -e 'tell application "System Events" to key code 97' 2>/dev/null
+    # Use the custom DND OFF shortcut
+    shortcuts run "DND OFF" 2>/dev/null
     
     echo -e "${GREEN}✓ Do Not Disturb disabled${NC}"
 }
