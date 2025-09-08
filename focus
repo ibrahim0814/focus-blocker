@@ -696,8 +696,88 @@ focus_on() {
     blocked_count=$(get_blocked_sites | wc -l | tr -d ' ')
     echo -e "${GREEN}✓ Focus mode activated! Blocked $blocked_count websites.${NC}"
     
+    # Enable Do Not Disturb
+    enable_dnd
+    
     # Restore browser tabs
     restore_browser_sessions
+}
+
+# Enable Do Not Disturb mode
+enable_dnd() {
+    echo -e "${BLUE}Enabling Do Not Disturb...${NC}"
+    
+    # Try using shortcuts command (macOS Monterey 12.0+)
+    if command -v shortcuts &> /dev/null; then
+        # Create a temporary shortcut command to enable DND
+        shortcuts run "Set Focus" <<< "Do Not Disturb" 2>/dev/null || {
+            # Fallback: Try using the Focus Mode shortcut if available
+            osascript -e 'tell application "System Events" to keystroke "d" using {shift down, control down, option down, command down}' 2>/dev/null || {
+                # Alternative method using defaults and notification center
+                defaults -currentHost write ~/Library/Preferences/ByHost/com.apple.notificationcenterui doNotDisturb -boolean true
+                defaults -currentHost write ~/Library/Preferences/ByHost/com.apple.notificationcenterui doNotDisturbDate -date "`date -u +"%Y-%m-%d %H:%M:%S +0000"`"
+                killall NotificationCenter 2>/dev/null
+            }
+        }
+        echo -e "${GREEN}✓ Do Not Disturb enabled${NC}"
+    else
+        # Fallback for older macOS versions - use AppleScript
+        osascript << 'EOF' 2>/dev/null
+tell application "System Events"
+    try
+        -- Try to enable DND using menu bar
+        tell application process "Control Center"
+            click menu bar item "Control Center" of menu bar 1
+            delay 0.5
+            click checkbox "Do Not Disturb" of window "Control Center"
+            key code 53 -- Escape to close Control Center
+        end tell
+    on error
+        -- Alternative: Use keyboard shortcut if available
+        keystroke "d" using {shift down, control down, option down, command down}
+    end try
+end tell
+EOF
+        echo -e "${GREEN}✓ Do Not Disturb enabled${NC}"
+    fi
+}
+
+# Disable Do Not Disturb mode
+disable_dnd() {
+    echo -e "${BLUE}Disabling Do Not Disturb...${NC}"
+    
+    # Try using shortcuts command (macOS Monterey 12.0+)
+    if command -v shortcuts &> /dev/null; then
+        # Try to turn off Do Not Disturb
+        shortcuts run "Turn Off Focus" 2>/dev/null || {
+            # Fallback: Try using keyboard shortcut
+            osascript -e 'tell application "System Events" to keystroke "d" using {shift down, control down, option down, command down}' 2>/dev/null || {
+                # Alternative method using defaults
+                defaults -currentHost write ~/Library/Preferences/ByHost/com.apple.notificationcenterui doNotDisturb -boolean false
+                killall NotificationCenter 2>/dev/null
+            }
+        }
+        echo -e "${GREEN}✓ Do Not Disturb disabled${NC}"
+    else
+        # Fallback for older macOS versions - use AppleScript
+        osascript << 'EOF' 2>/dev/null
+tell application "System Events"
+    try
+        -- Try to disable DND using menu bar
+        tell application process "Control Center"
+            click menu bar item "Control Center" of menu bar 1
+            delay 0.5
+            click checkbox "Do Not Disturb" of window "Control Center"
+            key code 53 -- Escape to close Control Center
+        end tell
+    on error
+        -- Alternative: Use keyboard shortcut if available
+        keystroke "d" using {shift down, control down, option down, command down}
+    end try
+end tell
+EOF
+        echo -e "${GREEN}✓ Do Not Disturb disabled${NC}"
+    fi
 }
 
 # Remove focus block entries from hosts file
@@ -715,6 +795,9 @@ focus_off() {
     # Flush DNS cache
     sudo dscacheutil -flushcache
     sudo killall -HUP mDNSResponder 2>/dev/null
+    
+    # Disable Do Not Disturb
+    disable_dnd
     
     echo -e "${GREEN}✓ Focus mode deactivated! All sites unblocked.${NC}"
 }

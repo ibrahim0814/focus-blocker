@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Project Overview
-Focus Blocker is a terminal-based website blocker for macOS that helps users stay focused by blocking distracting websites like x.com, twitter.com, reddit.com, youtube.com, etc. It works by modifying the system's `/etc/hosts` file to redirect blocked websites to localhost (127.0.0.1).
+Focus Blocker is a terminal-based website blocker for macOS that helps users stay focused by blocking distracting websites like x.com, twitter.com, reddit.com, youtube.com, etc. It works by modifying the system's `/etc/hosts` file to redirect blocked websites to localhost (127.0.0.1) and automatically enables Do Not Disturb mode to minimize distractions.
 
 ## Setup Commands
 - Install globally: `./install.sh` (requires sudo for /usr/local/bin access)
@@ -9,9 +9,9 @@ Focus Blocker is a terminal-based website blocker for macOS that helps users sta
 - Quick test: `focus list` (shows blocked sites and current status)
 
 ## Usage Commands
-- Block websites: `focus`
-- Block websites + launch Spotify playlist: `focus -s` or `focus -s <playlist_name>`
-- Unblock websites: `unfocus`  
+- Block websites + enable Do Not Disturb: `focus`
+- Block websites + enable Do Not Disturb + launch Spotify playlist: `focus -s` or `focus -s <playlist_name>`
+- Unblock websites + disable Do Not Disturb: `unfocus`  
 - Show status: `focus list`
 - Add site to blocklist: `focus add <domain>`
 - Remove site from blocklist: `focus remove <domain>`
@@ -38,6 +38,10 @@ Focus Blocker is a terminal-based website blocker for macOS that helps users sta
 - **Block markers**: `# FOCUS_BLOCKER_START` and `# FOCUS_BLOCKER_END`
 - **Install location**: `/usr/local/bin/focus` and `/usr/local/bin/unfocus`
 - **DNS cache flush**: Uses `dscacheutil -flushcache` and `killall -HUP mDNSResponder`
+- **Do Not Disturb**: Automatically enables/disables macOS Do Not Disturb when focus mode is activated/deactivated
+  - Uses `shortcuts` command on macOS Monterey (12.0+)
+  - Falls back to AppleScript for older versions
+  - Provides multiple fallback methods for reliability
 
 ## Security Considerations
 - **Requires sudo**: Scripts need root access to modify /etc/hosts
