@@ -736,7 +736,7 @@ force_close_browsers() {
             echo -e "${YELLOW}No dock-active apps to quit${NC}"
         fi
     else
-        # Original behavior - force close all browsers
+        # Original behavior - ALWAYS force close all browsers (no preservation in normal mode)
         echo -e "${BLUE}Force closing browsers...${NC}"
         # Force quit browsers with SIGKILL to prevent session saving
         pkill -9 -f "Google Chrome" 2>/dev/null
@@ -749,6 +749,8 @@ force_close_browsers() {
         pkill -9 brave 2>/dev/null  
         pkill -9 safari 2>/dev/null
         pkill -9 comet 2>/dev/null
+        
+        echo -e "${GREEN}✓ Force closed all browsers${NC}"
     fi
     
     sleep 3  # Give apps time to fully quit/close
