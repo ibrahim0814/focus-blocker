@@ -518,9 +518,7 @@ restore_chrome_session() {
     if [ -f "$SESSION_DIR/chrome_urls.txt" ] && [ -s "$SESSION_DIR/chrome_urls.txt" ]; then
         
         # Parse URLs and filter out blocked sites
-        # Reverse order because 'open' adds new tabs at the end, so we need to open them backwards
-        # to maintain the original left-to-right tab order
-        urls=$(cat "$SESSION_DIR/chrome_urls.txt" | tail -r)
+        urls=$(cat "$SESSION_DIR/chrome_urls.txt")
         
         if [ -n "$urls" ]; then
             restored_count=0
@@ -564,9 +562,7 @@ restore_safari_session() {
     if [ -f "$SESSION_DIR/safari_urls.txt" ] && [ -s "$SESSION_DIR/safari_urls.txt" ]; then
         
         # Parse URLs and filter out blocked sites
-        # Reverse order because 'open' adds new tabs at the end, so we need to open them backwards
-        # to maintain the original left-to-right tab order
-        urls=$(cat "$SESSION_DIR/safari_urls.txt" | tail -r)
+        urls=$(cat "$SESSION_DIR/safari_urls.txt")
         
         if [ -n "$urls" ]; then
             restored_count=0
@@ -610,9 +606,7 @@ restore_brave_session() {
     if [ -f "$SESSION_DIR/brave_urls.txt" ] && [ -s "$SESSION_DIR/brave_urls.txt" ]; then
         
         # Parse URLs and filter out blocked sites
-        # Reverse order because 'open' adds new tabs at the end, so we need to open them backwards
-        # to maintain the original left-to-right tab order
-        urls=$(cat "$SESSION_DIR/brave_urls.txt" | tail -r)
+        urls=$(cat "$SESSION_DIR/brave_urls.txt")
         
         if [ -n "$urls" ]; then
             restored_count=0
