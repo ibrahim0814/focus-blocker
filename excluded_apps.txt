@@ -1,0 +1,18 @@
+# Focus Blocker - Excluded Apps Configuration
+# Apps listed here will NEVER be quit during dock-only mode
+# Add one app name per line (exact name as it appears in the dock)
+# Lines starting with # are comments
+
+# Development Tools
+Cursor
+Warp
+Terminal
+
+# System Apps (recommended to keep)
+Finder
+
+# Add your own apps below:
+# Example:
+# Xcode
+# Visual Studio Code
+# iTerm2
