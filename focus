@@ -758,9 +758,19 @@ mid_session_cleanup() {
     if [ "$DOCK_ONLY_MODE" = "true" ]; then
         echo -e "${BLUE}🧹 Mid-session cleanup: quitting distracting dock apps...${NC}"
         
-        # Don't save browser sessions since we're mid-focus
-        # Just quit dock-active apps directly
+        # IMPORTANT: Save current browser sessions first (in case they have new important tabs)
+        echo -e "${BLUE}Saving any new browser tabs...${NC}"
         init_session_dir
+        
+        # Save tabs from browsers that are currently running
+        browsers_saved=0
+        save_chrome_session && browsers_saved=$((browsers_saved + 1))
+        save_safari_session && browsers_saved=$((browsers_saved + 1))
+        save_brave_session && browsers_saved=$((browsers_saved + 1))
+        
+        if [ $browsers_saved -gt 0 ]; then
+            echo -e "${GREEN}✓ Saved tabs from $browsers_saved browser(s)${NC}"
+        fi
         
         # Get all dock-active apps and quit them (excluding dev tools and browsers with saved tabs)
         local dock_apps=$(get_dock_active_apps)
@@ -769,14 +779,23 @@ mid_session_cleanup() {
         
         while IFS= read -r app_name; do
             if [ -n "$app_name" ]; then
-                # Check if this is a browser with saved tabs
+                # Check if this is a browser with saved tabs (now should include newly saved ones)
                 if browser_has_saved_tabs "$app_name"; then
                     echo -e "${BLUE}  Preserving: $app_name (has saved tabs for restoration)${NC}"
                     preserved_count=$((preserved_count + 1))
                 else
-                    echo -e "${YELLOW}  Quitting: $app_name${NC}"
-                    quit_app "$app_name"
-                    quit_count=$((quit_count + 1))
+                    # Mid-session cleanup safety: NEVER quit browsers, only non-browser apps
+                    case "$app_name" in
+                        "Google Chrome"|"Safari"|"Brave Browser"|"Comet")
+                            echo -e "${BLUE}  Preserving: $app_name (browser safety during mid-session cleanup)${NC}"
+                            preserved_count=$((preserved_count + 1))
+                            ;;
+                        *)
+                            echo -e "${YELLOW}  Quitting: $app_name${NC}"
+                            quit_app "$app_name"
+                            quit_count=$((quit_count + 1))
+                            ;;
+                    esac
                 fi
             fi
         done <<< "$dock_apps"
@@ -1098,8 +1117,8 @@ show_help() {
     echo "  focus -d                 # Block sites and quit dock-active apps (or mid-session cleanup if already focused)"
     echo "  focus --dock-only        # Same as above"
     echo ""
-    echo "  # Mid-session cleanup examples:"
-    echo "  focus -d                 # While focused: quit distracting apps that opened during session"
+    echo "  # Mid-session cleanup examples (SAFE - never quits browsers mid-session):"
+    echo "  focus -d                 # While focused: quit distracting non-browser apps (preserves all browsers)"
     echo "  focus -s                 # Block sites and start default playlist"
     echo "  focus -s lofi            # Block sites and start 'lofi' playlist"
     echo "  focus playlist add lofi https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn"
