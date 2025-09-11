@@ -604,14 +604,15 @@ restore_brave_session() {
 }
 
 
-# Get list of applications currently visible in the dock
+# Get list of applications currently visible in the dock (excluding dev tools)
 get_dock_active_apps() {
     osascript << 'EOF'
 tell application "System Events"
     set dockApps to {}
+    set excludedApps to {"Cursor", "Warp", "Terminal"}
     repeat with proc in (processes whose visible is true)
         set appName to (name of proc as string)
-        if appName is not "" then
+        if appName is not "" and appName is not in excludedApps then
             set end of dockApps to appName
         end if
     end repeat
@@ -630,37 +631,43 @@ is_app_in_dock() {
     echo "$dock_apps" | grep -q "^$app_name$"
 }
 
+# Quit an application gracefully using AppleScript
+quit_app() {
+    local app_name="$1"
+    osascript << EOF 2>/dev/null
+tell application "$app_name"
+    if it is running then
+        quit
+    end if
+end tell
+EOF
+}
+
 # Force close browsers without session restoration
 force_close_browsers() {
     if [ "$DOCK_ONLY_MODE" = "true" ]; then
-        echo -e "${BLUE}Closing only dock-active apps...${NC}"
+        echo -e "${BLUE}Quitting dock-active apps...${NC}"
         
-        # Check each app individually and only close if it's in the dock
-        if is_app_in_dock "Google Chrome"; then
-            echo -e "${YELLOW}  Closing Google Chrome (dock-active)${NC}"
-            pkill -9 -f "Google Chrome" 2>/dev/null
-            pkill -9 chrome 2>/dev/null
-        fi
+        # Get all dock-active apps and quit them (excluding dev tools)
+        local dock_apps=$(get_dock_active_apps)
+        local quit_count=0
         
-        if is_app_in_dock "Brave Browser"; then
-            echo -e "${YELLOW}  Closing Brave Browser (dock-active)${NC}"
-            pkill -9 -f "Brave Browser" 2>/dev/null
-            pkill -9 brave 2>/dev/null
-        fi
+        while IFS= read -r app_name; do
+            if [ -n "$app_name" ]; then
+                echo -e "${YELLOW}  Quitting: $app_name${NC}"
+                quit_app "$app_name"
+                quit_count=$((quit_count + 1))
+            fi
+        done <<< "$dock_apps"
         
-        if is_app_in_dock "Safari"; then
-            echo -e "${YELLOW}  Closing Safari (dock-active)${NC}"
-            pkill -9 -f "Safari" 2>/dev/null
-            pkill -9 safari 2>/dev/null
-        fi
-        
-        if is_app_in_dock "Comet"; then
-            echo -e "${YELLOW}  Closing Comet (dock-active)${NC}"
-            pkill -9 -f "Comet" 2>/dev/null
-            pkill -9 comet 2>/dev/null
+        if [ $quit_count -gt 0 ]; then
+            echo -e "${GREEN}✓ Quit $quit_count dock-active apps${NC}"
+        else
+            echo -e "${YELLOW}No dock-active apps to quit${NC}"
         fi
     else
-        # Original behavior - close all browsers
+        # Original behavior - force close all browsers
+        echo -e "${BLUE}Force closing browsers...${NC}"
         # Force quit browsers with SIGKILL to prevent session saving
         pkill -9 -f "Google Chrome" 2>/dev/null
         pkill -9 -f "Brave Browser" 2>/dev/null
@@ -674,7 +681,7 @@ force_close_browsers() {
         pkill -9 comet 2>/dev/null
     fi
     
-    sleep 3  # Give browsers time to fully close
+    sleep 3  # Give apps time to fully quit/close
 }
 
 # Save all browser tabs and close browsers - concise output with summary counts
@@ -987,7 +994,7 @@ show_help() {
     echo -e "${BLUE}Focus Blocker - Website blocking utility${NC}"
     echo ""
     echo "Commands:"
-    echo "  focus [--dock-only|-d]   - Activate focus mode (block sites). With --dock-only, only dock-active apps are closed"
+    echo "  focus [--dock-only|-d]   - Activate focus mode (block sites). With --dock-only, only dock-active apps are quit (excludes Cursor, Warp, Terminal)"
     echo "  focus -s [name]          - Activate focus mode + launch Spotify playlist"
     echo "  unfocus                  - Deactivate focus mode (unblock sites)"
     echo "  focus list               - Show blocked sites and current status"
@@ -1003,7 +1010,7 @@ show_help() {
     echo "  focus add x.com"
     echo "  focus add reddit.com"
     echo "  focus remove youtube.com"
-    echo "  focus -d                 # Block sites and only close dock-active apps"
+    echo "  focus -d                 # Block sites and quit dock-active apps (excludes dev tools)"
     echo "  focus --dock-only        # Same as above"
     echo "  focus -s                 # Block sites and start default playlist"
     echo "  focus -s lofi            # Block sites and start 'lofi' playlist"
