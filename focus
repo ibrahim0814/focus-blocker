@@ -807,15 +807,43 @@ mid_session_cleanup() {
             echo -e "${GREEN}✓ Saved tabs from $browsers_saved browser(s)${NC}"
         fi
         
-        # STEP 2: Quit ALL dock-active apps (including browsers)
+        # STEP 2: Quit ALL dock-active apps (force-kill browsers to prevent auto-restore)
         local dock_apps=$(get_dock_active_apps)
         local quit_count=0
         
         while IFS= read -r app_name; do
             if [ -n "$app_name" ]; then
-                echo -e "${YELLOW}  Quitting: $app_name${NC}"
-                quit_app "$app_name"
-                quit_count=$((quit_count + 1))
+                case "$app_name" in
+                    "Google Chrome")
+                        echo -e "${YELLOW}  Force closing: $app_name (prevent auto-restore)${NC}"
+                        pkill -9 -f "Google Chrome" 2>/dev/null
+                        pkill -9 chrome 2>/dev/null
+                        quit_count=$((quit_count + 1))
+                        ;;
+                    "Brave Browser")
+                        echo -e "${YELLOW}  Force closing: $app_name (prevent auto-restore)${NC}"
+                        pkill -9 -f "Brave Browser" 2>/dev/null
+                        pkill -9 brave 2>/dev/null
+                        quit_count=$((quit_count + 1))
+                        ;;
+                    "Safari")
+                        echo -e "${YELLOW}  Force closing: $app_name (prevent auto-restore)${NC}"
+                        pkill -9 -f "Safari" 2>/dev/null
+                        pkill -9 safari 2>/dev/null
+                        quit_count=$((quit_count + 1))
+                        ;;
+                    "Comet")
+                        echo -e "${YELLOW}  Force closing: $app_name (prevent auto-restore)${NC}"
+                        pkill -9 -f "Comet" 2>/dev/null
+                        pkill -9 comet 2>/dev/null
+                        quit_count=$((quit_count + 1))
+                        ;;
+                    *)
+                        echo -e "${YELLOW}  Quitting: $app_name${NC}"
+                        quit_app "$app_name"
+                        quit_count=$((quit_count + 1))
+                        ;;
+                esac
             fi
         done <<< "$dock_apps"
         
