@@ -650,6 +650,43 @@ browser_has_saved_tabs() {
     esac
 }
 
+# Check if browser has productive (non-blocked) tabs worth preserving
+browser_has_productive_tabs() {
+    local app_name="$1"
+    local session_file=""
+    
+    case "$app_name" in
+        "Google Chrome")
+            session_file="$SESSION_DIR/chrome_urls.txt"
+            ;;
+        "Safari")
+            session_file="$SESSION_DIR/safari_urls.txt"
+            ;;
+        "Brave Browser")
+            session_file="$SESSION_DIR/brave_urls.txt"
+            ;;
+        *)
+            return 1  # Not a browser we track, assume productive
+            ;;
+    esac
+    
+    # If no session file, assume browser might have productive tabs
+    if [ ! -f "$session_file" ] || [ ! -s "$session_file" ]; then
+        return 0  # Err on side of caution
+    fi
+    
+    # Check if ANY URL in the session is NOT blocked (i.e., productive)
+    while IFS= read -r url; do
+        if [ -n "$url" ]; then
+            if ! is_url_blocked "$url"; then
+                return 0  # Found at least one productive tab
+            fi
+        fi
+    done < "$session_file"
+    
+    return 1  # All tabs are blocked/distracting
+}
+
 # Quit an application gracefully using AppleScript
 quit_app() {
     local app_name="$1"
@@ -784,11 +821,18 @@ mid_session_cleanup() {
                     echo -e "${BLUE}  Preserving: $app_name (has saved tabs for restoration)${NC}"
                     preserved_count=$((preserved_count + 1))
                 else
-                    # Mid-session cleanup safety: NEVER quit browsers, only non-browser apps
+                    # Check if browser has productive tabs using existing logic
                     case "$app_name" in
                         "Google Chrome"|"Safari"|"Brave Browser"|"Comet")
-                            echo -e "${BLUE}  Preserving: $app_name (browser safety during mid-session cleanup)${NC}"
-                            preserved_count=$((preserved_count + 1))
+                            # Use existing logic: if browser has productive tabs, preserve it
+                            if browser_has_productive_tabs "$app_name"; then
+                                echo -e "${BLUE}  Preserving: $app_name (has productive tabs)${NC}"
+                                preserved_count=$((preserved_count + 1))
+                            else
+                                echo -e "${YELLOW}  Quitting: $app_name (only distracting tabs)${NC}"
+                                quit_app "$app_name"
+                                quit_count=$((quit_count + 1))
+                            fi
                             ;;
                         *)
                             echo -e "${YELLOW}  Quitting: $app_name${NC}"
