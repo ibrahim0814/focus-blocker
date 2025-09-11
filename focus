@@ -790,40 +790,40 @@ restore_browser_sessions() {
     fi
 }
 
-# Mid-session cleanup: use the exact same process as initial focus mode
+# Mid-session cleanup: quit dock apps first, then handle browsers with focus logic
 mid_session_cleanup() {
     if [ "$DOCK_ONLY_MODE" = "true" ]; then
-        echo -e "${BLUE}🧹 Mid-session cleanup: refreshing focus...${NC}"
+        echo -e "${BLUE}🧹 Mid-session cleanup: quitting distracting dock apps...${NC}"
         
-        # Use the EXACT same process as initial focus mode:
-        # 1. Save browser tabs and close browsers (filters out distracting tabs automatically)
-        save_and_close_browsers
+        # STEP 1: Save browser tabs first (before quitting anything)
+        echo -e "${BLUE}Saving browser tabs...${NC}"
+        init_session_dir
+        browsers_saved=0
+        save_chrome_session && browsers_saved=$((browsers_saved + 1))
+        save_safari_session && browsers_saved=$((browsers_saved + 1))
+        save_brave_session && browsers_saved=$((browsers_saved + 1))
         
-        # 2. Quit other dock-active apps (non-browsers)
+        if [ $browsers_saved -gt 0 ]; then
+            echo -e "${GREEN}✓ Saved tabs from $browsers_saved browser(s)${NC}"
+        fi
+        
+        # STEP 2: Quit ALL dock-active apps (including browsers)
         local dock_apps=$(get_dock_active_apps)
         local quit_count=0
         
         while IFS= read -r app_name; do
             if [ -n "$app_name" ]; then
-                # Skip browsers since save_and_close_browsers already handled them
-                case "$app_name" in
-                    "Google Chrome"|"Safari"|"Brave Browser"|"Comet")
-                        # Already handled by save_and_close_browsers
-                        ;;
-                    *)
-                        echo -e "${YELLOW}  Quitting: $app_name${NC}"
-                        quit_app "$app_name"
-                        quit_count=$((quit_count + 1))
-                        ;;
-                esac
+                echo -e "${YELLOW}  Quitting: $app_name${NC}"
+                quit_app "$app_name"
+                quit_count=$((quit_count + 1))
             fi
         done <<< "$dock_apps"
         
         if [ $quit_count -gt 0 ]; then
-            echo -e "${GREEN}✓ Quit $quit_count additional apps${NC}"
+            echo -e "${GREEN}✓ Quit $quit_count dock apps${NC}"
         fi
         
-        # 3. Restore browser tabs (only the productive ones, just like initial focus)
+        # STEP 3: Restore browser tabs (only productive ones, filtered by existing logic)
         restore_browser_sessions
         
         return 0
