@@ -753,10 +753,62 @@ restore_browser_sessions() {
     fi
 }
 
+# Mid-session cleanup: quit dock apps without affecting focus state
+mid_session_cleanup() {
+    if [ "$DOCK_ONLY_MODE" = "true" ]; then
+        echo -e "${BLUE}🧹 Mid-session cleanup: quitting distracting dock apps...${NC}"
+        
+        # Don't save browser sessions since we're mid-focus
+        # Just quit dock-active apps directly
+        init_session_dir
+        
+        # Get all dock-active apps and quit them (excluding dev tools and browsers with saved tabs)
+        local dock_apps=$(get_dock_active_apps)
+        local quit_count=0
+        local preserved_count=0
+        
+        while IFS= read -r app_name; do
+            if [ -n "$app_name" ]; then
+                # Check if this is a browser with saved tabs
+                if browser_has_saved_tabs "$app_name"; then
+                    echo -e "${BLUE}  Preserving: $app_name (has saved tabs for restoration)${NC}"
+                    preserved_count=$((preserved_count + 1))
+                else
+                    echo -e "${YELLOW}  Quitting: $app_name${NC}"
+                    quit_app "$app_name"
+                    quit_count=$((quit_count + 1))
+                fi
+            fi
+        done <<< "$dock_apps"
+        
+        # Show summary
+        if [ $quit_count -gt 0 ] || [ $preserved_count -gt 0 ]; then
+            if [ $quit_count -gt 0 ] && [ $preserved_count -gt 0 ]; then
+                echo -e "${GREEN}✓ Mid-session cleanup: Quit $quit_count apps, preserved $preserved_count browsers${NC}"
+            elif [ $quit_count -gt 0 ]; then
+                echo -e "${GREEN}✓ Mid-session cleanup: Quit $quit_count distracting apps${NC}"
+            else
+                echo -e "${BLUE}✓ All important apps already preserved${NC}"
+            fi
+        else
+            echo -e "${YELLOW}No distracting apps found in dock${NC}"
+        fi
+        
+        return 0
+    fi
+}
+
 # Add focus block entries to hosts file
 focus_on() {
+    # Handle dock-only mode when focus is already active (mid-session cleanup)
+    if is_focused && [ "$DOCK_ONLY_MODE" = "true" ]; then
+        mid_session_cleanup
+        return 0
+    fi
+    
     if is_focused; then
         echo -e "${YELLOW}Focus mode is already active!${NC}"
+        echo -e "${BLUE}💡 Tip: Use 'focus -d' for mid-session cleanup to quit distracting apps${NC}"
         return 0
     fi
     
@@ -1027,7 +1079,7 @@ show_help() {
     echo -e "${BLUE}Focus Blocker - Website blocking utility${NC}"
     echo ""
     echo "Commands:"
-    echo "  focus [--dock-only|-d]   - Activate focus mode (block sites). With --dock-only, quit dock-active apps (excludes dev tools & browsers with saved tabs)"
+    echo "  focus [--dock-only|-d]   - Activate focus mode (block sites). With --dock-only, quit dock-active apps. Also works mid-session for cleanup!"
     echo "  focus -s [name]          - Activate focus mode + launch Spotify playlist"
     echo "  unfocus                  - Deactivate focus mode (unblock sites)"
     echo "  focus list               - Show blocked sites and current status"
@@ -1043,8 +1095,11 @@ show_help() {
     echo "  focus add x.com"
     echo "  focus add reddit.com"
     echo "  focus remove youtube.com"
-    echo "  focus -d                 # Block sites and quit dock-active apps (preserves dev tools & browsers with tabs)"
+    echo "  focus -d                 # Block sites and quit dock-active apps (or mid-session cleanup if already focused)"
     echo "  focus --dock-only        # Same as above"
+    echo ""
+    echo "  # Mid-session cleanup examples:"
+    echo "  focus -d                 # While focused: quit distracting apps that opened during session"
     echo "  focus -s                 # Block sites and start default playlist"
     echo "  focus -s lofi            # Block sites and start 'lofi' playlist"
     echo "  focus playlist add lofi https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn"
