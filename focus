@@ -15,6 +15,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/blocked_sites.txt"
 SPOTIFY_CONFIG_FILE="$SCRIPT_DIR/spotify_config.txt"
+EXCLUDED_APPS_FILE="$SCRIPT_DIR/excluded_apps.txt"
 HOSTS_FILE="/etc/hosts"
 BACKUP_FILE="$SCRIPT_DIR/hosts_backup"
 FOCUS_MARKER="# FOCUS_BLOCKER_START"
@@ -47,6 +48,53 @@ EOF
         echo -e "${GREEN}Created default config file: $CONFIG_FILE${NC}"
         echo -e "${BLUE}Edit this file to customize your blocked sites.${NC}"
     fi
+}
+
+# Initialize excluded apps config file if it doesn't exist
+init_excluded_apps_config() {
+    if [ ! -f "$EXCLUDED_APPS_FILE" ]; then
+        cat > "$EXCLUDED_APPS_FILE" << 'EOF'
+# Focus Blocker - Excluded Apps Configuration
+# Apps listed here will NEVER be quit during dock-only mode
+# Add one app name per line (exact name as it appears in the dock)
+# Lines starting with # are comments
+
+# Development Tools
+Cursor
+Warp
+Terminal
+
+# System Apps (recommended to keep)
+Finder
+
+# Add your own apps below:
+# Example:
+# Xcode
+# Visual Studio Code
+# iTerm2
+EOF
+        echo -e "${GREEN}Created excluded apps config file: $EXCLUDED_APPS_FILE${NC}"
+        echo -e "${BLUE}Edit this file to customize which apps are never quit in dock-only mode.${NC}"
+    fi
+}
+
+# Get excluded apps from config file
+get_excluded_apps() {
+    if [ -f "$EXCLUDED_APPS_FILE" ]; then
+        grep -v "^#" "$EXCLUDED_APPS_FILE" | grep -v "^$" | sort -u
+    fi
+}
+
+# Check if an app is in the excluded list
+is_app_excluded() {
+    local app_name="$1"
+    get_excluded_apps | grep -q "^$app_name$"
+}
+
+# Check if Spotify is currently playing music
+is_spotify_playing() {
+    local player_state=$(osascript -e 'tell application "Spotify" to get player state' 2>/dev/null)
+    [ "$player_state" = "playing" ]
 }
 
 # Initialize Spotify config file if it doesn't exist
@@ -604,15 +652,15 @@ restore_brave_session() {
 }
 
 
-# Get list of applications currently visible in the dock (excluding dev tools)
+# Get list of applications currently visible in the dock (excluding apps from config)
 get_dock_active_apps() {
-    osascript << 'EOF'
+    # First get all dock-visible apps
+    local all_dock_apps=$(osascript << 'EOF'
 tell application "System Events"
     set dockApps to {}
-    set excludedApps to {"Cursor", "Warp", "Terminal"}
     repeat with proc in (processes whose visible is true)
         set appName to (name of proc as string)
-        if appName is not "" and appName is not in excludedApps then
+        if appName is not "" then
             set end of dockApps to appName
         end if
     end repeat
@@ -622,6 +670,14 @@ tell application "System Events"
     return appList
 end tell
 EOF
+)
+    
+    # Filter out excluded apps using the config file
+    echo "$all_dock_apps" | while IFS= read -r app_name; do
+        if [ -n "$app_name" ] && ! is_app_excluded "$app_name"; then
+            echo "$app_name"
+        fi
+    done
 }
 
 # Check if an app is currently visible in the dock
@@ -735,6 +791,16 @@ force_close_browsers() {
                         pkill -9 -f "Comet" 2>/dev/null
                         pkill -9 comet 2>/dev/null
                         browser_count=$((browser_count + 1))
+                        ;;
+                    "Spotify")
+                        # Only quit Spotify if nothing is playing
+                        if is_spotify_playing; then
+                            echo -e "${BLUE}  Preserving: $app_name (currently playing music)${NC}"
+                        else
+                            echo -e "${YELLOW}  Quitting: $app_name (not playing)${NC}"
+                            quit_app "$app_name"
+                            quit_count=$((quit_count + 1))
+                        fi
                         ;;
                     *)
                         echo -e "${YELLOW}  Quitting: $app_name${NC}"
@@ -861,6 +927,16 @@ mid_session_cleanup() {
                         pkill -9 -f "Comet" 2>/dev/null
                         pkill -9 comet 2>/dev/null
                         quit_count=$((quit_count + 1))
+                        ;;
+                    "Spotify")
+                        # Only quit Spotify if nothing is playing
+                        if is_spotify_playing; then
+                            echo -e "${BLUE}  Preserving: $app_name (currently playing music)${NC}"
+                        else
+                            echo -e "${YELLOW}  Quitting: $app_name (not playing)${NC}"
+                            quit_app "$app_name"
+                            quit_count=$((quit_count + 1))
+                        fi
                         ;;
                     *)
                         echo -e "${YELLOW}  Quitting: $app_name${NC}"
@@ -1194,6 +1270,7 @@ show_help() {
     echo -e "${YELLOW}Config files:${NC}"
     echo -e "  Blocked sites: $CONFIG_FILE"
     echo -e "  Spotify config: $SPOTIFY_CONFIG_FILE"
+    echo -e "  Excluded apps: $EXCLUDED_APPS_FILE"
 }
 
 # Parse flags (support combined flags like -ds, -sd)
@@ -1242,10 +1319,12 @@ done
 case "$1" in
     "")
         init_config
+        init_excluded_apps_config
         focus_on
         ;;
     "-s")
         init_config
+        init_excluded_apps_config
         focus_on
         launch_spotify_focus "$2"
         ;;
