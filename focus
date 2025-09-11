@@ -27,6 +27,9 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Global flag for dock-only mode
+DOCK_ONLY_MODE=false
+
 # Initialize config file if it doesn't exist
 init_config() {
     if [ ! -f "$CONFIG_FILE" ]; then
@@ -601,19 +604,75 @@ restore_brave_session() {
 }
 
 
+# Get list of applications currently visible in the dock
+get_dock_active_apps() {
+    osascript << 'EOF'
+tell application "System Events"
+    set dockApps to {}
+    repeat with proc in (processes whose visible is true)
+        set appName to (name of proc as string)
+        if appName is not "" then
+            set end of dockApps to appName
+        end if
+    end repeat
+    set AppleScript's text item delimiters to linefeed
+    set appList to dockApps as string
+    set AppleScript's text item delimiters to ""
+    return appList
+end tell
+EOF
+}
+
+# Check if an app is currently visible in the dock
+is_app_in_dock() {
+    local app_name="$1"
+    local dock_apps=$(get_dock_active_apps)
+    echo "$dock_apps" | grep -q "^$app_name$"
+}
+
 # Force close browsers without session restoration
 force_close_browsers() {
-    # Force quit browsers with SIGKILL to prevent session saving
-    pkill -9 -f "Google Chrome" 2>/dev/null
-    pkill -9 -f "Brave Browser" 2>/dev/null
-    pkill -9 -f "Safari" 2>/dev/null
-    pkill -9 -f "Comet" 2>/dev/null
-    
-    # Also kill any remaining processes
-    pkill -9 chrome 2>/dev/null
-    pkill -9 brave 2>/dev/null  
-    pkill -9 safari 2>/dev/null
-    pkill -9 comet 2>/dev/null
+    if [ "$DOCK_ONLY_MODE" = "true" ]; then
+        echo -e "${BLUE}Closing only dock-active apps...${NC}"
+        
+        # Check each app individually and only close if it's in the dock
+        if is_app_in_dock "Google Chrome"; then
+            echo -e "${YELLOW}  Closing Google Chrome (dock-active)${NC}"
+            pkill -9 -f "Google Chrome" 2>/dev/null
+            pkill -9 chrome 2>/dev/null
+        fi
+        
+        if is_app_in_dock "Brave Browser"; then
+            echo -e "${YELLOW}  Closing Brave Browser (dock-active)${NC}"
+            pkill -9 -f "Brave Browser" 2>/dev/null
+            pkill -9 brave 2>/dev/null
+        fi
+        
+        if is_app_in_dock "Safari"; then
+            echo -e "${YELLOW}  Closing Safari (dock-active)${NC}"
+            pkill -9 -f "Safari" 2>/dev/null
+            pkill -9 safari 2>/dev/null
+        fi
+        
+        if is_app_in_dock "Comet"; then
+            echo -e "${YELLOW}  Closing Comet (dock-active)${NC}"
+            pkill -9 -f "Comet" 2>/dev/null
+            pkill -9 comet 2>/dev/null
+        fi
+    else
+        # Original behavior - close all browsers
+        # Force quit browsers with SIGKILL to prevent session saving
+        pkill -9 -f "Google Chrome" 2>/dev/null
+        pkill -9 -f "Brave Browser" 2>/dev/null
+        pkill -9 -f "Safari" 2>/dev/null
+        pkill -9 -f "Comet" 2>/dev/null
+        
+        # Also kill any remaining processes
+        pkill -9 chrome 2>/dev/null
+        pkill -9 brave 2>/dev/null  
+        pkill -9 safari 2>/dev/null
+        pkill -9 comet 2>/dev/null
+    fi
     
     sleep 3  # Give browsers time to fully close
 }
@@ -928,9 +987,8 @@ show_help() {
     echo -e "${BLUE}Focus Blocker - Website blocking utility${NC}"
     echo ""
     echo "Commands:"
-    echo "  focus                    - Activate focus mode (block sites)"
-    echo "  focus -s                 - Activate focus mode + launch default Spotify playlist"
-    echo "  focus -s <name>          - Activate focus mode + launch named Spotify playlist"
+    echo "  focus [--dock-only|-d]   - Activate focus mode (block sites). With --dock-only, only dock-active apps are closed"
+    echo "  focus -s [name]          - Activate focus mode + launch Spotify playlist"
     echo "  unfocus                  - Deactivate focus mode (unblock sites)"
     echo "  focus list               - Show blocked sites and current status"
     echo "  focus playlists          - Show available Spotify playlists"
@@ -945,6 +1003,8 @@ show_help() {
     echo "  focus add x.com"
     echo "  focus add reddit.com"
     echo "  focus remove youtube.com"
+    echo "  focus -d                 # Block sites and only close dock-active apps"
+    echo "  focus --dock-only        # Same as above"
     echo "  focus -s                 # Block sites and start default playlist"
     echo "  focus -s lofi            # Block sites and start 'lofi' playlist"
     echo "  focus playlist add lofi https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn"
@@ -955,6 +1015,19 @@ show_help() {
     echo -e "  Spotify config: $SPOTIFY_CONFIG_FILE"
 }
 
+# Parse flags (support --dock-only/-d before command)
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dock-only|-d)
+            DOCK_ONLY_MODE=true
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
 # Main logic
 case "$1" in
     "")
@@ -964,6 +1037,11 @@ case "$1" in
     "-s")
         init_config
         focus_on
+        # Support optional dock-only flag in position 3 as well (focus -s <name> --dock-only)
+        # Note: DOCK_ONLY_MODE is already set if flag was before -s
+        if [ "$3" = "--dock-only" ] || [ "$3" = "-d" ]; then
+            DOCK_ONLY_MODE=true
+        fi
         launch_spotify_focus "$2"
         ;;
     "list")
