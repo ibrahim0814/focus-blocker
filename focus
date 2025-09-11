@@ -704,33 +704,55 @@ force_close_browsers() {
     if [ "$DOCK_ONLY_MODE" = "true" ]; then
         echo -e "${BLUE}Quitting dock-active apps...${NC}"
         
-        # Get all dock-active apps and quit them (excluding dev tools and browsers with saved tabs)
+        # Get all dock-active apps and quit them (force-close browsers like normal mode)
         local dock_apps=$(get_dock_active_apps)
         local quit_count=0
-        local preserved_count=0
+        local browser_count=0
         
         while IFS= read -r app_name; do
             if [ -n "$app_name" ]; then
-                # Check if this is a browser with saved tabs
-                if browser_has_saved_tabs "$app_name"; then
-                    echo -e "${BLUE}  Preserving: $app_name (has saved tabs for restoration)${NC}"
-                    preserved_count=$((preserved_count + 1))
-                else
-                    echo -e "${YELLOW}  Quitting: $app_name${NC}"
-                    quit_app "$app_name"
-                    quit_count=$((quit_count + 1))
-                fi
+                case "$app_name" in
+                    "Google Chrome")
+                        echo -e "${YELLOW}  Force closing: $app_name (will restore clean tabs)${NC}"
+                        pkill -9 -f "Google Chrome" 2>/dev/null
+                        pkill -9 chrome 2>/dev/null
+                        browser_count=$((browser_count + 1))
+                        ;;
+                    "Brave Browser")
+                        echo -e "${YELLOW}  Force closing: $app_name (will restore clean tabs)${NC}"
+                        pkill -9 -f "Brave Browser" 2>/dev/null
+                        pkill -9 brave 2>/dev/null
+                        browser_count=$((browser_count + 1))
+                        ;;
+                    "Safari")
+                        echo -e "${YELLOW}  Force closing: $app_name (will restore clean tabs)${NC}"
+                        pkill -9 -f "Safari" 2>/dev/null
+                        pkill -9 safari 2>/dev/null
+                        browser_count=$((browser_count + 1))
+                        ;;
+                    "Comet")
+                        echo -e "${YELLOW}  Force closing: $app_name (will restore clean tabs)${NC}"
+                        pkill -9 -f "Comet" 2>/dev/null
+                        pkill -9 comet 2>/dev/null
+                        browser_count=$((browser_count + 1))
+                        ;;
+                    *)
+                        echo -e "${YELLOW}  Quitting: $app_name${NC}"
+                        quit_app "$app_name"
+                        quit_count=$((quit_count + 1))
+                        ;;
+                esac
             fi
         done <<< "$dock_apps"
         
         # Show summary
-        if [ $quit_count -gt 0 ] || [ $preserved_count -gt 0 ]; then
-            if [ $quit_count -gt 0 ] && [ $preserved_count -gt 0 ]; then
-                echo -e "${GREEN}✓ Quit $quit_count apps, preserved $preserved_count browsers with saved tabs${NC}"
+        if [ $quit_count -gt 0 ] || [ $browser_count -gt 0 ]; then
+            if [ $quit_count -gt 0 ] && [ $browser_count -gt 0 ]; then
+                echo -e "${GREEN}✓ Quit $quit_count apps, force closed $browser_count browsers${NC}"
             elif [ $quit_count -gt 0 ]; then
                 echo -e "${GREEN}✓ Quit $quit_count dock-active apps${NC}"
-            else
-                echo -e "${BLUE}✓ Preserved $preserved_count browsers with saved tabs (no other apps to quit)${NC}"
+            elif [ $browser_count -gt 0 ]; then
+                echo -e "${GREEN}✓ Force closed $browser_count browsers${NC}"
             fi
         else
             echo -e "${YELLOW}No dock-active apps to quit${NC}"
