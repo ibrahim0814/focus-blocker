@@ -790,72 +790,41 @@ restore_browser_sessions() {
     fi
 }
 
-# Mid-session cleanup: quit dock apps without affecting focus state
+# Mid-session cleanup: use the exact same process as initial focus mode
 mid_session_cleanup() {
     if [ "$DOCK_ONLY_MODE" = "true" ]; then
-        echo -e "${BLUE}🧹 Mid-session cleanup: quitting distracting dock apps...${NC}"
+        echo -e "${BLUE}🧹 Mid-session cleanup: refreshing focus...${NC}"
         
-        # IMPORTANT: Save current browser sessions first (in case they have new important tabs)
-        echo -e "${BLUE}Saving any new browser tabs...${NC}"
-        init_session_dir
+        # Use the EXACT same process as initial focus mode:
+        # 1. Save browser tabs and close browsers (filters out distracting tabs automatically)
+        save_and_close_browsers
         
-        # Save tabs from browsers that are currently running
-        browsers_saved=0
-        save_chrome_session && browsers_saved=$((browsers_saved + 1))
-        save_safari_session && browsers_saved=$((browsers_saved + 1))
-        save_brave_session && browsers_saved=$((browsers_saved + 1))
-        
-        if [ $browsers_saved -gt 0 ]; then
-            echo -e "${GREEN}✓ Saved tabs from $browsers_saved browser(s)${NC}"
-        fi
-        
-        # Get all dock-active apps and quit them (excluding dev tools and browsers with saved tabs)
+        # 2. Quit other dock-active apps (non-browsers)
         local dock_apps=$(get_dock_active_apps)
         local quit_count=0
-        local preserved_count=0
         
         while IFS= read -r app_name; do
             if [ -n "$app_name" ]; then
-                # Check if this is a browser with saved tabs (now should include newly saved ones)
-                if browser_has_saved_tabs "$app_name"; then
-                    echo -e "${BLUE}  Preserving: $app_name (has saved tabs for restoration)${NC}"
-                    preserved_count=$((preserved_count + 1))
-                else
-                    # Check if browser has productive tabs using existing logic
-                    case "$app_name" in
-                        "Google Chrome"|"Safari"|"Brave Browser"|"Comet")
-                            # Use existing logic: if browser has productive tabs, preserve it
-                            if browser_has_productive_tabs "$app_name"; then
-                                echo -e "${BLUE}  Preserving: $app_name (has productive tabs)${NC}"
-                                preserved_count=$((preserved_count + 1))
-                            else
-                                echo -e "${YELLOW}  Quitting: $app_name (only distracting tabs)${NC}"
-                                quit_app "$app_name"
-                                quit_count=$((quit_count + 1))
-                            fi
-                            ;;
-                        *)
-                            echo -e "${YELLOW}  Quitting: $app_name${NC}"
-                            quit_app "$app_name"
-                            quit_count=$((quit_count + 1))
-                            ;;
-                    esac
-                fi
+                # Skip browsers since save_and_close_browsers already handled them
+                case "$app_name" in
+                    "Google Chrome"|"Safari"|"Brave Browser"|"Comet")
+                        # Already handled by save_and_close_browsers
+                        ;;
+                    *)
+                        echo -e "${YELLOW}  Quitting: $app_name${NC}"
+                        quit_app "$app_name"
+                        quit_count=$((quit_count + 1))
+                        ;;
+                esac
             fi
         done <<< "$dock_apps"
         
-        # Show summary
-        if [ $quit_count -gt 0 ] || [ $preserved_count -gt 0 ]; then
-            if [ $quit_count -gt 0 ] && [ $preserved_count -gt 0 ]; then
-                echo -e "${GREEN}✓ Mid-session cleanup: Quit $quit_count apps, preserved $preserved_count browsers${NC}"
-            elif [ $quit_count -gt 0 ]; then
-                echo -e "${GREEN}✓ Mid-session cleanup: Quit $quit_count distracting apps${NC}"
-            else
-                echo -e "${BLUE}✓ All important apps already preserved${NC}"
-            fi
-        else
-            echo -e "${YELLOW}No distracting apps found in dock${NC}"
+        if [ $quit_count -gt 0 ]; then
+            echo -e "${GREEN}✓ Quit $quit_count additional apps${NC}"
         fi
+        
+        # 3. Restore browser tabs (only the productive ones, just like initial focus)
+        restore_browser_sessions
         
         return 0
     fi
