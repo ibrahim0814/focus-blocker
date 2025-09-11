@@ -1157,9 +1157,11 @@ show_help() {
     echo "  focus remove youtube.com"
     echo "  focus -d                 # Block sites and quit dock-active apps (or mid-session cleanup if already focused)"
     echo "  focus --dock-only        # Same as above"
+    echo "  focus -ds                # Block sites + dock cleanup + default Spotify playlist"
+    echo "  focus -sd lofi           # Block sites + dock cleanup + 'lofi' Spotify playlist"
     echo ""
-    echo "  # Mid-session cleanup examples (SAFE - never quits browsers mid-session):"
-    echo "  focus -d                 # While focused: quit distracting non-browser apps (preserves all browsers)"
+    echo "  # Mid-session cleanup examples:"
+    echo "  focus -d                 # While focused: quit distracting apps + clean browser tabs"
     echo "  focus -s                 # Block sites and start default playlist"
     echo "  focus -s lofi            # Block sites and start 'lofi' playlist"
     echo "  focus playlist add lofi https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn"
@@ -1170,12 +1172,41 @@ show_help() {
     echo -e "  Spotify config: $SPOTIFY_CONFIG_FILE"
 }
 
-# Parse flags (support --dock-only/-d before command)
+# Parse flags (support combined flags like -ds, -sd)
 while [ $# -gt 0 ]; do
     case "$1" in
         --dock-only|-d)
             DOCK_ONLY_MODE=true
             shift
+            ;;
+        -ds|-sd)
+            DOCK_ONLY_MODE=true
+            # Set up for Spotify mode
+            set -- "-s" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"
+            break
+            ;;
+        -d*)
+            # Handle -d combined with other flags (e.g., -ds)
+            DOCK_ONLY_MODE=true
+            # Extract the rest of the flags after -d
+            rest_flags="${1#-d}"
+            if [ -n "$rest_flags" ]; then
+                # Reconstruct the argument list with separated flags
+                set -- "-$rest_flags" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"
+            else
+                shift
+            fi
+            ;;
+        -*d*)
+            # Handle flags that contain d but start with something else (e.g., -sd)
+            DOCK_ONLY_MODE=true
+            # Remove the 'd' from the flag and continue processing
+            cleaned_flag=$(echo "$1" | sed 's/d//')
+            if [ "$cleaned_flag" = "-" ]; then
+                shift
+            else
+                set -- "$cleaned_flag" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"
+            fi
             ;;
         *)
             break
@@ -1192,11 +1223,6 @@ case "$1" in
     "-s")
         init_config
         focus_on
-        # Support optional dock-only flag in position 3 as well (focus -s <name> --dock-only)
-        # Note: DOCK_ONLY_MODE is already set if flag was before -s
-        if [ "$3" = "--dock-only" ] || [ "$3" = "-d" ]; then
-            DOCK_ONLY_MODE=true
-        fi
         launch_spotify_focus "$2"
         ;;
     "list")
