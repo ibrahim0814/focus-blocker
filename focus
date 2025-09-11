@@ -631,6 +631,25 @@ is_app_in_dock() {
     echo "$dock_apps" | grep -q "^$app_name$"
 }
 
+# Check if a browser has saved tabs that we want to restore later
+browser_has_saved_tabs() {
+    local app_name="$1"
+    case "$app_name" in
+        "Google Chrome")
+            [ -f "$SESSION_DIR/chrome_urls.txt" ] && [ -s "$SESSION_DIR/chrome_urls.txt" ]
+            ;;
+        "Safari")
+            [ -f "$SESSION_DIR/safari_urls.txt" ] && [ -s "$SESSION_DIR/safari_urls.txt" ]
+            ;;
+        "Brave Browser")
+            [ -f "$SESSION_DIR/brave_urls.txt" ] && [ -s "$SESSION_DIR/brave_urls.txt" ]
+            ;;
+        *)
+            false  # Not a browser we track
+            ;;
+    esac
+}
+
 # Quit an application gracefully using AppleScript
 quit_app() {
     local app_name="$1"
@@ -648,20 +667,34 @@ force_close_browsers() {
     if [ "$DOCK_ONLY_MODE" = "true" ]; then
         echo -e "${BLUE}Quitting dock-active apps...${NC}"
         
-        # Get all dock-active apps and quit them (excluding dev tools)
+        # Get all dock-active apps and quit them (excluding dev tools and browsers with saved tabs)
         local dock_apps=$(get_dock_active_apps)
         local quit_count=0
+        local preserved_count=0
         
         while IFS= read -r app_name; do
             if [ -n "$app_name" ]; then
-                echo -e "${YELLOW}  Quitting: $app_name${NC}"
-                quit_app "$app_name"
-                quit_count=$((quit_count + 1))
+                # Check if this is a browser with saved tabs
+                if browser_has_saved_tabs "$app_name"; then
+                    echo -e "${BLUE}  Preserving: $app_name (has saved tabs for restoration)${NC}"
+                    preserved_count=$((preserved_count + 1))
+                else
+                    echo -e "${YELLOW}  Quitting: $app_name${NC}"
+                    quit_app "$app_name"
+                    quit_count=$((quit_count + 1))
+                fi
             fi
         done <<< "$dock_apps"
         
-        if [ $quit_count -gt 0 ]; then
-            echo -e "${GREEN}✓ Quit $quit_count dock-active apps${NC}"
+        # Show summary
+        if [ $quit_count -gt 0 ] || [ $preserved_count -gt 0 ]; then
+            if [ $quit_count -gt 0 ] && [ $preserved_count -gt 0 ]; then
+                echo -e "${GREEN}✓ Quit $quit_count apps, preserved $preserved_count browsers with saved tabs${NC}"
+            elif [ $quit_count -gt 0 ]; then
+                echo -e "${GREEN}✓ Quit $quit_count dock-active apps${NC}"
+            else
+                echo -e "${BLUE}✓ Preserved $preserved_count browsers with saved tabs (no other apps to quit)${NC}"
+            fi
         else
             echo -e "${YELLOW}No dock-active apps to quit${NC}"
         fi
@@ -994,7 +1027,7 @@ show_help() {
     echo -e "${BLUE}Focus Blocker - Website blocking utility${NC}"
     echo ""
     echo "Commands:"
-    echo "  focus [--dock-only|-d]   - Activate focus mode (block sites). With --dock-only, only dock-active apps are quit (excludes Cursor, Warp, Terminal)"
+    echo "  focus [--dock-only|-d]   - Activate focus mode (block sites). With --dock-only, quit dock-active apps (excludes dev tools & browsers with saved tabs)"
     echo "  focus -s [name]          - Activate focus mode + launch Spotify playlist"
     echo "  unfocus                  - Deactivate focus mode (unblock sites)"
     echo "  focus list               - Show blocked sites and current status"
@@ -1010,7 +1043,7 @@ show_help() {
     echo "  focus add x.com"
     echo "  focus add reddit.com"
     echo "  focus remove youtube.com"
-    echo "  focus -d                 # Block sites and quit dock-active apps (excludes dev tools)"
+    echo "  focus -d                 # Block sites and quit dock-active apps (preserves dev tools & browsers with tabs)"
     echo "  focus --dock-only        # Same as above"
     echo "  focus -s                 # Block sites and start default playlist"
     echo "  focus -s lofi            # Block sites and start 'lofi' playlist"
